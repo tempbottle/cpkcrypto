@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configurationDescriptor version="35">
+  <projectmakefile>Makefile</projectmakefile>
+  <defaultConf>0</defaultConf>
+  <confs>
+    <conf name="Debug" type="1">
+      <advancedprofiling version="1">
+      </advancedprofiling>
+      <dbxdebugger version="1">
+        <engine>dbx</engine>
+        <pathmaps>
+        </pathmaps>
+        <interceptlist>
+          <interceptoptions all="false" unhandled="true" unexpected="true"/>
+        </interceptlist>
+        <signals>
+        </signals>
+        <options>
+          <DebugOptions>
+          </DebugOptions>
+        </options>
+      </dbxdebugger>
+      <dbxrtc version="1">
+        <options>
+          <RtcOptions>
+            <option name="rtc_error_log_file_name" value="/dev/null"/>
+          </RtcOptions>
+        </options>
+      </dbxrtc>
+      <runprofile version="5">
+        <args></args>
+        <rundir>.</rundir>
+        <buildfirst>true</buildfirst>
+        <console-type>0</console-type>
+        <terminal-type>0</terminal-type>
+        <environment>
+          <variable name="NBCND_RC" value="/var/tmp/nbcnd_rc15794"/>
+        </environment>
+      </runprofile>
+      <threadanalysis version="1">
+      </threadanalysis>
+    </conf>
+    <conf name="Release" type="2">
+      <advancedprofiling version="1">
+      </advancedprofiling>
+      <dbxdebugger version="1">
+        <engine>dbx</engine>
+        <pathmaps>
+        </pathmaps>
+        <interceptlist>
+          <interceptoptions all="false" unhandled="true" unexpected="true"/>
+        </interceptlist>
+        <signals>
+        </signals>
+        <options>
+          <DebugOptions>
+          </DebugOptions>
+        </options>
+      </dbxdebugger>
+      <dbxrtc version="1">
+        <options>
+          <RtcOptions>
+            <option name="rtc_error_log_file_name" value="/dev/null"/>
+          </RtcOptions>
+        </options>
+      </dbxrtc>
+      <runprofile version="5">
+        <args></args>
+        <rundir></rundir>
+        <buildfirst>true</buildfirst>
+        <console-type>0</console-type>
+        <terminal-type>0</terminal-type>
+        <environment>
+        </environment>
+      </runprofile>
+      <threadanalysis version="1">
+      </threadanalysis>
+    </conf>
+  </confs>
+</configurationDescriptor>
