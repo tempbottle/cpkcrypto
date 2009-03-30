@@ -1,6 +1,5 @@
 package org.cpk.crypto;
 
-import java.util.Map;
 import java.util.Properties;
 import java.io.BufferedReader;
 import java.io.IOException;

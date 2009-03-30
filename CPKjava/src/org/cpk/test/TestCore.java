@@ -1,4 +1,6 @@
 package org.cpk.test;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -26,6 +28,9 @@ import javax.crypto.NoSuchPaddingException;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.IEKeySpec;
 import org.bouncycastle.jce.spec.IESParameterSpec;
@@ -34,6 +39,7 @@ import org.bouncycastle.util.encoders.Hex;
 import org.cpk.crypto.secmatrix.*;
 import org.cpk.crypto.pubmatrix.*;
 import org.cpk.crypto.CPKUtil;
+import org.cpk.crypto.KeySerializer;
 import org.cpk.crypto.MapAlgMgr;
 
 import org.cpk.cms.PKCS7;
@@ -41,6 +47,8 @@ import org.cpk.cms.PKCS7;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Vector;
 
 public class TestCore {
@@ -62,6 +70,16 @@ public class TestCore {
 			
 			BaseTest(secmatrix, pubmatrix);
 			
+			logger.info("BaseTest first pass : DONE");
+			
+			KeyImExportTest(secmatrix, pubmatrix);
+			
+			logger.info("export pri/pub keys : DONE");
+			
+			en_decryptStreamTest(secmatrix, pubmatrix);
+			
+			logger.info("en/de crypt stream test: DONE");
+			
 			/// test matrix export and import
 			FileOutputStream secout = new FileOutputStream("secmatrix"); 
 			FileInputStream secin = new FileInputStream("secmatrix");
@@ -79,11 +97,67 @@ public class TestCore {
 			secmatrix = secSerial.GetSecMatrix();
 			pubmatrix = pubSerial.GetPubMatrix();
 			
+			logger.info(" import matrices : DONE");			
+			
 			BaseTest(secmatrix, pubmatrix);
+			
+			logger.info("BaseTest second pass : DONE");
 			
 		}catch(Exception ex){
 			ex.printStackTrace();
 		}
+	}
+
+	private static void en_decryptStreamTest(SecMatrix secmatrix,
+			PubMatrix pubmatrix) throws FileNotFoundException,
+			InvalidKeyException, InvalidKeySpecException,
+			NoSuchAlgorithmException, NoSuchPaddingException, IOException,
+			IllegalBlockSizeException, BadPaddingException,
+			InvalidAlgorithmParameterException, InvalidParameterSpecException {
+		FileInputStream fis = new FileInputStream("SourceText");
+		FileOutputStream fos = new FileOutputStream("EncryptedSourceText");
+		CPKUtil util = new CPKUtil(secmatrix, pubmatrix);
+		util.Encrypt(fis, fos, secmatrix.GeneratePrivateKey("zaex"), "zaex_recv", null, true);
+		fis.close();
+		fos.close();
+		
+		FileInputStream afis = new FileInputStream("EncryptedSourceText");
+		fos = new FileOutputStream("DecryptedSourceText");
+		util.Decrypt(afis, fos, secmatrix.GeneratePrivateKey("zaex_recv"), "zaex", null);
+		
+		afis.close();
+		fos.close();
+	}
+
+	private static void KeyImExportTest(SecMatrix secmatrix, PubMatrix pubmatrix)
+			throws InvalidKeySpecException, IOException,
+			NoSuchAlgorithmException, NoSuchPaddingException,
+			InvalidKeyException, IllegalBlockSizeException,
+			BadPaddingException, InvalidParameterSpecException,
+			InvalidAlgorithmParameterException {
+		PrivateKey prikey = secmatrix.GeneratePrivateKey("zaex");
+		PublicKey pubkey = pubmatrix.GeneratePublicKey("zaex_recv");						
+
+		KeySerializer.PutPrivateKeyToFile(prikey, "prikey");
+		KeySerializer.PutPublicKeyToToFile(pubkey, "pubkey");
+		PrivateKey genPriKey = KeySerializer.GetPrivateKeyFromFile("prikey");
+		PublicKey genPubKey = KeySerializer.GetPublicKeyFromFile("pubkey");
+		
+		CPKUtil util = new CPKUtil(secmatrix, pubmatrix);
+		String srcStr = "Ohyeah";
+		ByteArrayOutputStream param = new ByteArrayOutputStream();
+		//byte[] cipherText = util.Encrypt(srcStr.getBytes(), genPriKey, "zaex_recv", param);
+		
+		Cipher cipher = Cipher.getInstance("ECIES");
+		IEKeySpec spec = new IEKeySpec(genPriKey, genPubKey);
+		cipher.init(Cipher.ENCRYPT_MODE, spec);
+		byte[] cipherText = cipher.doFinal(srcStr.getBytes());
+		param.write(cipher.getParameters().getEncoded());
+		
+		AlgorithmParameters algParam = AlgorithmParameters.getInstance("IES");
+		CPKUtil.InitAlgParam(param.toByteArray(), algParam);
+		byte[] clearText = util.Decrypt(cipherText, secmatrix.GeneratePrivateKey("zaex_recv"), "zaex", algParam);
+		System.out.println("Test key export/import: clearText: "+new String(clearText));
 	}
 	
 	private static void BaseTest(SecMatrix secmatrix, PubMatrix pubmatrix)

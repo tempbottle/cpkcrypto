@@ -39,7 +39,7 @@ public class MapAlgMsgDigest implements MapAlg {
 			for(int j=0; j<8 && i+j<count; ++j ){
 				if ((b & 1) != 0){
 					v.add(i+j); 
-					logger.debug("doMap: add: " + (i+j));
+					//logger.debug("doMap: add: " + (i+j));
 				}
 				b >>= 1;
 			}

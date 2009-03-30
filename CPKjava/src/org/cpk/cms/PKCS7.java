@@ -1,9 +1,7 @@
 package org.cpk.cms;
 
-import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.AlgorithmParameters;
 import java.security.InvalidAlgorithmParameterException;
@@ -15,10 +13,8 @@ import java.security.SecureRandom;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.TimeZone;
 import java.util.Vector;
 
 import javax.crypto.BadPaddingException;
@@ -265,7 +261,7 @@ public class PKCS7 {
 				ASN1Sequence parameters = DERSequence.getInstance(keyinfo.getKeyEncryptionAlgorithm().getParameters());
 				String senderId = new String(((DEROctetString)parameters.getObjectAt(1)).getOctets(), "UTF-8");
 				AlgorithmParameters algParam = AlgorithmParameters.getInstance("IES");
-				InitAlgParam(parameters, algParam);
+				CPKUtil.InitAlgParam(((DEROctetString)parameters.getObjectAt(0)).getOctets(), algParam);
 				byte[] cipherKeyEncoded = m_util.Decrypt(encedCipherKey, recverPrikey, senderId, algParam); //the session key decrypted
 				SecretKeySpec cipherKey = new SecretKeySpec(cipherKeyEncoded, "AES");
 //				SecretKeyFactory skFactory = SecretKeyFactory.getInstance("AES");
@@ -283,19 +279,5 @@ public class PKCS7 {
 		}
 		//if no intendedRecvId meets given 'recverid' then return null
 		return null;
-	}
-
-	private void InitAlgParam(ASN1Sequence parameters,
-			AlgorithmParameters algParam) throws IOException, InvalidParameterSpecException {
-		ASN1Sequence inAlgParam = (ASN1Sequence) DERSequence.fromByteArray(((DEROctetString)parameters.getObjectAt(0)).getOctets());
-		byte[] p1 = ((DEROctetString)inAlgParam.getObjectAt(0)).getOctets();
-		byte[] p2 = ((DEROctetString)inAlgParam.getObjectAt(1)).getOctets();
-		int p3 = ((DERInteger)inAlgParam.getObjectAt(2)).getValue().intValue();
-		IESParameterSpec spec = new IESParameterSpec(p1, p2, p3);
-		System.out.println("p1:" + new String(Hex.encode(p1)));
-		System.out.println("p2:" + new String(Hex.encode(p2)));
-		System.out.println("p3:" + String.valueOf(p3));
-		algParam.init(spec);
-	}
-	
+	}	
 }
