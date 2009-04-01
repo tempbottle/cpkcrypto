@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.spec.AlgorithmParameterSpec;
@@ -24,8 +25,13 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.DERObjectIdentifier;
@@ -57,7 +63,7 @@ public class CPKUtil {
 	/**
 	 * just use the two initialized matrices to fill the CPKUtil class
 	 * @param secmatrix already inited instance, if not available, set it null
-	 * @param pubmatrix already inited instance
+	 * @param pubmatrix already inited instance, if not available, set it null
 	 */
 	public CPKUtil(SecMatrix secmatrix, PubMatrix pubmatrix){
 		this.m_secmatrix = secmatrix;
@@ -71,8 +77,10 @@ public class CPKUtil {
 	 * @throws IOException 
 	 */
 	public CPKUtil(SecMatrixSerializer secImport, PubMatrixSerializer pubImport) throws IOException{
-		m_secmatrix = secImport.GetSecMatrix();
-		m_pubmatrix = pubImport.GetPubMatrix();
+		if(secImport != null)
+			m_secmatrix = secImport.GetSecMatrix();
+		if(pubImport != null)
+			m_pubmatrix = pubImport.GetPubMatrix();
 	}
 	
 	/**
@@ -107,7 +115,7 @@ public class CPKUtil {
 	 * @throws SignatureException
 	 * @throws InvalidKeyException
 	 */
-	public byte[] Sign(byte[] data, PrivateKey prikey)
+	public static byte[] Sign(byte[] data, PrivateKey prikey)
 		throws NoSuchAlgorithmException, SignatureException, InvalidKeyException{
 		
 		Signature sigAlg = Signature.getInstance("ECDSA");
@@ -140,7 +148,8 @@ public class CPKUtil {
 		
 	/**
 	 * encrypt the given data with ECIES algorithm, the encrypting key is generated with 
-	 * Alice's PrivateKey and Bob's Id, if param is given, the algorithm parameter is returned by that 
+	 * Alice's PrivateKey and Bob's Id, if param is given, the algorithm parameter is returned by that
+	 * [WARNING: this function only applies to small amount of data, huge data will cause heap overflow] 
 	 * @param data the original data
 	 * @param AliceId the encrypter's PrivateKey
 	 * @param BobId the receiver's id
@@ -168,6 +177,7 @@ public class CPKUtil {
 	
 	/**
 	 * encrypt the data from InputStream and return the encrypted byte[] 
+	 * [WARNING: this function only applies to small amount of data, huge data will cause heap overflow]
 	 * @param is input stream
 	 * @param AliceKey private key used to encrypt
 	 * @param BobId recver's id
@@ -189,8 +199,8 @@ public class CPKUtil {
 		
 		CipherInputStream cis = new CipherInputStream(is, cipher);
 		while(true){
-			int len = is.read(buf);
-			if( -1 == len ){ //eof
+			int len = cis.read(buf);
+			if( -1 == len ){ //eof				
 				break;
 			}
 			bos.write(buf, 0, len);
@@ -200,13 +210,14 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * encrypt the data from given InputStream, and output the result to given OutputStream
+	 * encrypt the data from given InputStream, and output 
+	 * 1) ECIES algorithm parameters and encrypted symmetry session key to output stream 
+	 * 2) the cipher text to given Output Stream
+	 * [NOTE: this function could handle huge amount of data]
 	 * @param is stream where data comes from
 	 * @param os stream where result goes to
 	 * @param AliceKey the private key used to encrypt
-	 * @param BobId the recver's id, used to generate public key for encryption
-	 * @param param [OPTIONAL][in,out] the ByteArrayOutputStream to contains the Cipher's parameters
-	 * @param bEncodeParam if true, will encode and output AlgorithmParameter to the {@code os} first, then the encrypted data
+	 * @param BobId the recver's id, used to generate public key for encryption	 
 	 * @throws InvalidKeyException
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
@@ -218,22 +229,33 @@ public class CPKUtil {
 	public void Encrypt(InputStream is, 
 			OutputStream os,
 			PrivateKey AliceKey, 
-			String BobId,
-			ByteArrayOutputStream param,
-			boolean bEncodeParam) throws InvalidKeyException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchPaddingException, IOException, IllegalBlockSizeException, BadPaddingException{
-		Cipher cipher = encrypt_pub(AliceKey, BobId, param);
+			String BobId			
+			) throws InvalidKeyException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchPaddingException, IOException, IllegalBlockSizeException, BadPaddingException{
+		Cipher cipher = encrypt_pub(AliceKey, BobId, null); //the ECIES cipher used to encrypt session key
+				
+		//generate session key
+		KeyGenerator gen = KeyGenerator.getInstance("AES");
+		gen.init(128, new SecureRandom());
+		SecretKey sessionKey = gen.generateKey();		
+		byte[] encryptedSessionKey = cipher.doFinal(sessionKey.getEncoded());
+
+		//output encrypted session key to output stream
+		ASN1EncodableVector seq = new ASN1EncodableVector();
+		seq.add(new DEROctetString(cipher.getParameters().getEncoded()));
+		seq.add(new DEROctetString(encryptedSessionKey));		
+		os.write(new DERSequence(seq).getDEREncoded());
+		
+		//use session key to encrypt clear text and output to output stream
 		byte[] buf = new byte[4096];
+		Cipher sessionCipher = Cipher.getInstance("AES");
+		sessionCipher.init(Cipher.ENCRYPT_MODE, sessionKey);		
 		
-		if(bEncodeParam){ //if wants to output algParam to os too
-			os.write(cipher.getParameters().getEncoded());
-		}
-		
-		CipherInputStream cis = new CipherInputStream(is, cipher);
-		
+		CipherInputStream cis = new CipherInputStream(is, sessionCipher);		
 		while(true){
 			int len = cis.read(buf);
-			if( -1 == len )
+			if( -1 == len ){				
 				break;
+			}
 			os.write(buf, 0, len);
 		}		
 	}
@@ -286,8 +308,8 @@ public class CPKUtil {
 		
 		CipherInputStream cis = new CipherInputStream(is, cipher);
 		while(true){
-			int len = is.read(buf);
-			if( -1 == len ){ //eof
+			int len = cis.read(buf);
+			if( -1 == len ){ //eof				
 				break;
 			}
 			bos.write(buf, 0, len);
@@ -297,12 +319,12 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * decrypt the data from given InputStream, output the decrypted data to given OutputStream
+	 * first extract encrypted session key and ECIES algorithm parameters from head of input stream, then 
+	 * decrypt the data from given InputStream with session key, output the decrypted data to given OutputStream
 	 * @param is the InputStram where encrypted data comes from
 	 * @param os the OutputStream where decrypted data goes to
 	 * @param BobKey the recver's PrivateKey
-	 * @param AliceId the sender's ID
-	 * @param param [OPTIONAL][in] the AlgorithmParameters for Cipher, if null,  will try to extract param from the head of {@code is}	 
+	 * @param AliceId the sender's ID	 	 
 	 * @throws InvalidKeyException
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
@@ -316,38 +338,47 @@ public class CPKUtil {
 	public void Decrypt(InputStream is, 
 			OutputStream os, 
 			PrivateKey BobKey, 
-			String AliceId, 
-			AlgorithmParameters param
+			String AliceId			
 			)
 	throws InvalidKeyException, InvalidKeySpecException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IOException, IllegalBlockSizeException, BadPaddingException, InvalidParameterSpecException{
+				
+		ASN1InputStream asn1is = new ASN1InputStream(is);
+		DERSequence seq = (DERSequence)asn1is.readObject();
+		byte[] encodedParam = ((DEROctetString)seq.getObjectAt(0)).getOctets();
+		AlgorithmParameters param = AlgorithmParameters.getInstance("IES");
+		InitAlgParam(encodedParam, param);
+		byte[] EncryptEncodededSessionKey = ((DEROctetString)seq.getObjectAt(1)).getOctets();
+				
+		Cipher iesCipher = decrypt_pub(BobKey, AliceId, param); //the cipher used to decrypt symmetric key
+		byte[] EncodedSessionKey = iesCipher.doFinal(EncryptEncodededSessionKey); //the symmetric session key 
+		
+		SecretKeySpec cipherKey = new SecretKeySpec(EncodedSessionKey, "AES"); //decode from binary format to secret key 
+		Cipher sessionCipher = Cipher.getInstance("AES");		
+		sessionCipher.init(Cipher.DECRYPT_MODE, cipherKey);
 		
 		byte[] buf = new byte[4096];
-		if( null == param ){ //if param == null, then extract AlgorithmParameter from head of 'is'
-			param = extractAlgParameterFromInputStreamHead(is);
-		}		
-		Cipher cipher = decrypt_pub(BobKey, AliceId, param);
-		
-		CipherInputStream cis = new CipherInputStream(is, cipher);
+		CipherInputStream cis = new CipherInputStream(asn1is, sessionCipher);
 		while(true){
 			int len = cis.read(buf);
-			if( -1 == len )
-				break; //eof			
+			if( -1 == len ){				
+				break; //eof
+			}
 			os.write(buf, 0, len);			
 		}	
 	}
 
-	private AlgorithmParameters extractAlgParameterFromInputStreamHead(
-			InputStream is) throws IOException, NoSuchAlgorithmException,
-			InvalidParameterSpecException {
-		AlgorithmParameters param;
-		byte[] tmpbuf = new byte[256];
-		is.read(tmpbuf, 0, 2);
-		is.read(tmpbuf, 2, tmpbuf[1]);
-		byte[] encodedAlgParam = ByteBuffer.wrap(tmpbuf, 0, tmpbuf[1]+2).array();
-		param = AlgorithmParameters.getInstance("IES");
-		InitAlgParam(encodedAlgParam, param);
-		return param;
-	}
+//	private AlgorithmParameters extractAlgParameterFromInputStreamHead(
+//			InputStream is) throws IOException, NoSuchAlgorithmException,
+//			InvalidParameterSpecException {
+//		AlgorithmParameters param;
+//		byte[] tmpbuf = new byte[256];
+//		is.read(tmpbuf, 0, 2);
+//		is.read(tmpbuf, 2, tmpbuf[1]);
+//		byte[] encodedAlgParam = ByteBuffer.wrap(tmpbuf, 0, tmpbuf[1]+2).array();
+//		param = AlgorithmParameters.getInstance("IES");
+//		InitAlgParam(encodedAlgParam, param);
+//		return param;
+//	}
 	
 	/**
 	 * Digest given data with specified algorithm, return the digest.

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.FileInputStream;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 import org.apache.log4j.Logger;
 
@@ -19,29 +20,24 @@ public class MapAlgMgr {
 		s_id_name_mapping.load(new BufferedReader(new InputStreamReader(new FileInputStream(id_name), "UTF-8")));
 	}
 	
-	static public MapAlg GetMapAlg(String algNameWithParam)	throws Exception{
+	static public MapAlg GetMapAlg(String algNameWithParam)	throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException{
 		String[] splitted = algNameWithParam.split("_", 2);
 		String algName = splitted[0];		
 		String classname = s_name_class_mapping.getProperty(algName);
 		if(null == classname)
 			throw new IllegalArgumentException("the class name not found in properties file:" + algName );
-		else{
-			try{
-				Class c = Class.forName(classname);
-				if(splitted.length > 1){ //if has parameter
-					Constructor<MapAlg> con = c.getConstructor(String.class);
-					return (MapAlg)con.newInstance(splitted[1]);
-				}else{
-					return (MapAlg)c.newInstance();
-				}
-			}catch(ClassNotFoundException ex){
-				logger.error(ex.toString());
-				throw ex;				
+		else{			
+			Class c = Class.forName(classname);
+			if(splitted.length > 1){ //if has parameter
+				Constructor<MapAlg> con = c.getConstructor(String.class);
+				return (MapAlg)con.newInstance(splitted[1]);
+			}else{
+				return (MapAlg)c.newInstance();
 			}			 			
 		}		
 	}
 	
-	static public MapAlg GetMapAlgByOID(String oid) throws Exception{
+	static public MapAlg GetMapAlgByOID(String oid) throws SecurityException, IllegalArgumentException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException{
 		String algNameWithParam = s_id_name_mapping.getProperty(oid);
 		return GetMapAlg(algNameWithParam);
 	}

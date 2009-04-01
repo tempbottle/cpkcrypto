@@ -38,6 +38,7 @@ import org.bouncycastle.asn1.ASN1SetParser;
 import org.bouncycastle.asn1.ASN1StreamParser;
 import org.bouncycastle.asn1.DEREncodableVector;
 import org.bouncycastle.asn1.DERInteger;
+import org.bouncycastle.asn1.DERNull;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERSequenceParser;
@@ -94,10 +95,15 @@ public class PKCS7 {
 		DERInteger version = new DERInteger(1);
 		DERSet algset = new DERSet(OIWObjectIdentifiers.idSHA1);
 		ContentInfo contentInfo = null;
+		
 		if(! bDetach){
 			contentInfo = new ContentInfo(PKCSObjectIdentifiers.data, 
 					new DEROctetString(data));
+		}else{ //if is detached
+			contentInfo = new ContentInfo(PKCSObjectIdentifiers.data,
+					new DERNull());
 		}
+		
 		ASN1Set certs = null; //certificates, no chance for their presence
 		ASN1Set crls = null;  //crls, neither
 		
@@ -116,7 +122,7 @@ public class PKCS7 {
 					new AlgorithmIdentifier(OIWObjectIdentifiers.idSHA1), 
 					new DERSet(attrs),
 					new AlgorithmIdentifier(X9ObjectIdentifiers.ecdsa_with_SHA1),
-					new DEROctetString(m_util.Sign(data, prikeys.get(i))),
+					new DEROctetString(CPKUtil.Sign(data, prikeys.get(i))),
 					null);
 			signerInfosArr[i] = info;
 		}

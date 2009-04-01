@@ -1,5 +1,6 @@
 package org.cpk.crypto.secmatrix;
 
+import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
 import java.net.URI;
 import java.util.Vector;
@@ -39,7 +40,7 @@ public class SecMatrix {
 		m_keyFactory = KeyFactory.getInstance("ECDSA");
 	}
 	
-	public static SecMatrix GenerateNewMatrix(int row, int col, String curveName, String mapAlgName, URI domainURI) throws Exception
+	public static SecMatrix GenerateNewMatrix(int row, int col, String curveName, String mapAlgName, URI domainURI) throws NoSuchAlgorithmException, SecurityException, IllegalArgumentException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException
 	{
 		SecMatrix inst = new SecMatrix();
 		inst.m_mapAlg = MapAlgMgr.GetMapAlg(mapAlgName);

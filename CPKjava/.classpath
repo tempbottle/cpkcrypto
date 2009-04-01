@@ -2,7 +2,8 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/crypto-141/crypto-141/jars/bcprov-jdk16-141.jar" sourcepath="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/crypto-141/"/>
+	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/crypto-141/crypto-141/jars/bcprov-jdk16-141.jar" sourcepath="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/crypto-141/crypto-141/src"/>
 	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/apache-log4j-1.2.15/apache-log4j-1.2.15/log4j-1.2.15.jar"/>
+	<classpathentry kind="lib" path="D:/works/programs/CPKjava/CPKjava/commons-cli-1.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

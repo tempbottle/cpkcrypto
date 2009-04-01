@@ -1,5 +1,4 @@
 package org.cpk.test;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -18,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Security;
 import java.security.Signature;
 import java.security.SignatureException;
 
@@ -31,6 +31,7 @@ import org.apache.log4j.PropertyConfigurator;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.IEKeySpec;
 import org.bouncycastle.jce.spec.IESParameterSpec;
@@ -61,6 +62,7 @@ public class TestCore {
 		try{		
 			PropertyConfigurator.configure("log4j.properties");
 			MapAlgMgr.Configure("MapAlg.properties", "OIDMapAlg.properties");
+			Security.addProvider(new BouncyCastleProvider());
 			
 			logger.info("start to create secret matrix");
 			SecMatrix secmatrix = SecMatrix.GenerateNewMatrix(16, 32, "prime192v1", "DigestMap_SHA512", new URI("cpk:alphaJava"));
@@ -117,13 +119,13 @@ public class TestCore {
 		FileInputStream fis = new FileInputStream("SourceText");
 		FileOutputStream fos = new FileOutputStream("EncryptedSourceText");
 		CPKUtil util = new CPKUtil(secmatrix, pubmatrix);
-		util.Encrypt(fis, fos, secmatrix.GeneratePrivateKey("zaex"), "zaex_recv", null, true);
+		util.Encrypt(fis, fos, secmatrix.GeneratePrivateKey("zaex"), "zaex_recv");
 		fis.close();
 		fos.close();
 		
 		FileInputStream afis = new FileInputStream("EncryptedSourceText");
 		fos = new FileOutputStream("DecryptedSourceText");
-		util.Decrypt(afis, fos, secmatrix.GeneratePrivateKey("zaex_recv"), "zaex", null);
+		util.Decrypt(afis, fos, secmatrix.GeneratePrivateKey("zaex_recv"), "zaex");
 		
 		afis.close();
 		fos.close();
