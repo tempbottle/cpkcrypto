@@ -3,6 +3,7 @@ package org.cpk.crypto;
 import java.util.Properties;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.FileInputStream;
 import java.lang.reflect.Constructor;
@@ -15,9 +16,15 @@ public class MapAlgMgr {
 	static Properties s_name_class_mapping = new Properties(); // <algname, algClassName> pairs
 	static Properties s_id_name_mapping = new Properties();
 		
-	static public void Configure(String name_class, String id_name) throws IOException{		
-		s_name_class_mapping.load(new BufferedReader(new InputStreamReader(new FileInputStream(name_class), "UTF-8")));
-		s_id_name_mapping.load(new BufferedReader(new InputStreamReader(new FileInputStream(id_name), "UTF-8")));
+	static public void Configure(String name_class, String id_name) throws IOException{
+		//first try to load from classpath
+		InputStream name_class_is = MapAlgMgr.class.getResourceAsStream("/"+name_class);
+		InputStream id_name_is = MapAlgMgr.class.getResourceAsStream("/"+id_name);
+		
+		//if not found in classpath, try to find at CWD		
+				
+		s_name_class_mapping.load(new BufferedReader(new InputStreamReader(name_class_is, "UTF-8")));
+		s_id_name_mapping.load(new BufferedReader(new InputStreamReader(id_name_is, "UTF-8")));
 	}
 	
 	static public MapAlg GetMapAlg(String algNameWithParam)	throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException{

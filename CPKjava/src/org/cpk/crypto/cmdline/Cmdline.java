@@ -54,14 +54,15 @@ public class Cmdline {
 	public static void main(String[] args){
 		// TODO Auto-generated method stub
 		try{
-			PropertyConfigurator.configure("log4j.properties");
+			PropertyConfigurator.configure(Cmdline.class.getResource("log4j.properties"));
 		}catch(Exception ex){
-			System.err.println("log4j not properly configured");
+			System.err.println("log4j not properly configured, ignored...");
 		}
 		
 		try{
 			MapAlgMgr.Configure("MapAlg.properties", "OIDMapAlg.properties");
 		}catch(Exception ex){
+			ex.printStackTrace();
 			System.err.println("Not all the configuration files are ready...exit");
 			System.err.println("Maybe 'MapAlg.properties' or 'OIDMapAlg.properties' not present?");
 			return;
@@ -70,7 +71,7 @@ public class Cmdline {
 		if( -1 == Security.addProvider(new BouncyCastleProvider())){ //add this provider
 			System.err.println("Failed to add BC provider, ignored(maybe already added...)");			
 		}
-			
+		
 		Cmdline cmdline = new Cmdline();
 		if(args.length < 1){
 			cmdline.Help();

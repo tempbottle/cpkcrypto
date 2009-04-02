@@ -422,9 +422,9 @@ public class CPKUtil {
 		byte[] p2 = ((DEROctetString)inAlgParam.getObjectAt(1)).getOctets();
 		int p3 = ((DERInteger)inAlgParam.getObjectAt(2)).getValue().intValue();
 		IESParameterSpec spec = new IESParameterSpec(p1, p2, p3);
-		System.out.println("p1:" + new String(Hex.encode(p1)));
-		System.out.println("p2:" + new String(Hex.encode(p2)));
-		System.out.println("p3:" + String.valueOf(p3));
+//		System.out.println("p1:" + new String(Hex.encode(p1)));
+//		System.out.println("p2:" + new String(Hex.encode(p2)));
+//		System.out.println("p3:" + String.valueOf(p3));
 		algParam.init(spec);
 	}
 	
