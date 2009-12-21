@@ -19,18 +19,35 @@ import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.cpk.crypto.MapAlgMgr;
 
+/**
+ * This class could serialize/de-serialize {@link org.cpk.crypto.secmatrix.SecMatrix SecMatrix} 
+ * into/from DER encoding
+ * @author zaexage@gmail.com
+ * @see <a href=http://en.wikipedia.org/wiki/Distinguished_Encoding_Rules>DER encoding</a>
+ */
 public class DERSecmatrixSerializer implements SecMatrixSerializer {
 
-	private Logger logger = Logger.getLogger(DERSecmatrixSerializer.class);
+	private static Logger logger = Logger.getLogger(DERSecmatrixSerializer.class);
 	private InputStream m_in;
 	private OutputStream m_out;
 	
+	/**
+	 * initialize, the two parameters are both optional.
+	 * if client needs to export secret matrix, then the `out' parameter must be given;
+	 * if client needs to import secret matrix, then the `in' parameter must be given;   
+	 * @param in an InputStream instance which connects to a DER encoded SecMatrix
+	 * @param out an OutputStream instance where the SecMatrix will be output
+	 */
 	public DERSecmatrixSerializer(InputStream in, OutputStream out){
 		m_in = in;
 		m_out = out;
 	}
-	
-	@Override
+
+	/**
+	 * export the SecMatrix to the OutputStream set at initialization
+	 * @param secmatrix the secret matrix need to be exported
+	 * @throws IOException
+	 */
 	public void ExportSecMatrix(SecMatrix secmatrix) throws IOException {
 		// TODO Auto-generated method stub
 		ASN1EncodableVector encVec = new ASN1EncodableVector();
@@ -55,9 +72,11 @@ public class DERSecmatrixSerializer implements SecMatrixSerializer {
 		m_out.write(new DERSequence(encVec).getDEREncoded()); //output the whole lot
 	}
 
-	@Override
+	/**
+	 * import a secret matrix from InputStream set at initialization
+	 * @return the secret matrix de-serialized from InputStream
+	 */
 	public SecMatrix GetSecMatrix() throws IOException {
-		// TODO Auto-generated method stub
 		try{
 			ASN1InputStream is = new ASN1InputStream(m_in);
 			SecMatrix secmatrix = new SecMatrix();

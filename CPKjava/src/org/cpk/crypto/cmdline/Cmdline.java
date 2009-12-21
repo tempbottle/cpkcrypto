@@ -43,6 +43,10 @@ import org.cpk.crypto.pubmatrix.PubMatrix;
 import org.cpk.crypto.secmatrix.DERSecmatrixSerializer;
 import org.cpk.crypto.secmatrix.SecMatrix;
 
+/**
+ * 
+ * @author zaexage@gmail.com
+ */
 public class Cmdline {
 
 	private static Logger logger = Logger.getLogger(Cmdline.class);

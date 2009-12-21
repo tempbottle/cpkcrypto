@@ -60,7 +60,7 @@ public class TestCore {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		try{		
-			PropertyConfigurator.configure("log4j.properties");
+			PropertyConfigurator.configure(TestCore.class.getResource("/org/cpk/crypto/cmdline/log4j.properties"));
 			MapAlgMgr.Configure("MapAlg.properties", "OIDMapAlg.properties");
 			Security.addProvider(new BouncyCastleProvider());
 			

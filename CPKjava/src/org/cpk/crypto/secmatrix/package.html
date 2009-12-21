@@ -1,0 +1,13 @@
+<HTML><BODY>
+<p> This package provides some classes about {@link org.cpk.crypto.secmatrix.SecMatrix secret matrix}. </p> 
+<p> secret matrix is a group of data that used to derive a secret key from an given id.
+	client could use {@link org.cpk.crypto.secmatrix.SecMatrix#GeneratePrivateKey GeneratePrivateKey}
+	to get that.<br>
+	secret matrix could also derive the instance of corresponding {@link org.cpk.crypto.pubmatrix.PubMatrix public matrix}
+</p>
+<p>	
+	{@link org.cpk.crypto.secmatrix.SecMatrixSerializer SecMatrixSerializer} is an interface used to 
+	serialize/de-serialize the secret matrix. For now, only one class {@link org.cpk.crypto.secmatrix.DERSecmatrixSerializer DERSecmatrixSerializer}
+	implements this interface, which does the serialization in DER encoding.	  
+</p>
+</BODY></HTML>

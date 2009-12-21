@@ -8,9 +8,9 @@ import java.util.Vector;
 import org.apache.log4j.Logger;
 
 /**
- * this class uses specified algorithm to compute digest and use it to  
- * map to a vector of indices. if digest's bit-length < row * col, exception will be thrown 
- * NOTE: the bits used will start from the low-side, e.g.:byte[0] is 0~7 
+ * this class uses specified digest algorithm to compute a fixed length digest and use it to  
+ * map to a vector of indices. if digest's bit-length < matrix's size, exception will be thrown 
+ * NOTE: the bytes used will start from the low-end, e.g.:byte[0] is 0~7 
  */
 public class MapAlgMsgDigest implements MapAlg {
 

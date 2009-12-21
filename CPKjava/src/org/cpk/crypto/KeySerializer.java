@@ -16,17 +16,35 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 
 /**
- * @author ZaeXage
+ * an utility class to serialize/de-serialize public key and private key  
+ * @author zaexage@gmail.com
  */
 public class KeySerializer {
 	
+	/**
+	 * encode the Private Key instance to byte[]
+	 * @param prikey the private key instance
+	 * @return the encoded private key
+	 */
 	public static byte[] ToByteArray(PrivateKey prikey){
 		return prikey.getEncoded();
 	}
+	
+	/**
+	 * encode the Public Key instance to byte[] 
+	 * @param pubkey the public key instance 
+	 * @return the encoded public key
+	 */
 	public static byte[] ToByteArray(PublicKey pubkey){
 		return pubkey.getEncoded();
 	}
 	
+	/**
+	 * output encoded private key to specified file
+	 * @param prikey the private key to be encoded and output
+	 * @param filename the file where the encoded key output
+	 * @throws IOException
+	 */
 	public static void PutPrivateKeyToFile(PrivateKey prikey, String filename) throws IOException{
 		byte[] bytes = ToByteArray(prikey);
 		FileOutputStream fos = new FileOutputStream(filename);
@@ -34,6 +52,12 @@ public class KeySerializer {
 		fos.close();
 	}
 	
+	/**
+	 * output encoded public key to specified file
+	 * @param pubkey the public key to be encoded and output
+	 * @param filename the file where the encoded key output
+	 * @throws IOException
+	 */
 	public static void PutPublicKeyToToFile(PublicKey pubkey, String filename) throws IOException{
 		byte[] bytes = ToByteArray(pubkey);
 		FileOutputStream fos = new FileOutputStream(filename);
@@ -41,6 +65,14 @@ public class KeySerializer {
 		fos.close();
 	}
 	
+	/**
+	 * retrieve a private key from specified file
+	 * @param filename the file where to retrieve the private key
+	 * @return PrivateKey instance
+	 * @throws IOException
+	 * @throws NoSuchAlgorithmException
+	 * @throws InvalidKeySpecException
+	 */
 	public static PrivateKey GetPrivateKeyFromFile(String filename) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException{
 		FileInputStream fis = new FileInputStream(filename);
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -58,6 +90,14 @@ public class KeySerializer {
 		return prikey;
 	}
 	
+	/**
+	 * retrieve a public key from specified file
+	 * @param filename the file where to retrieve the public key
+	 * @return PublicKey instance
+	 * @throws IOException
+	 * @throws NoSuchAlgorithmException
+	 * @throws InvalidKeySpecException
+	 */
 	public static PublicKey GetPublicKeyFromFile(String filename) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException{
 		FileInputStream fis = new FileInputStream(filename);
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();

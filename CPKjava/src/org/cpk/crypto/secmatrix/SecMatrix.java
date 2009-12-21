@@ -21,10 +21,15 @@ import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 
 import org.apache.log4j.Logger;
 
+/**
+ * Secret matrix is used to derive user's private key from given id. 
+ * Also, client could use an instance of SecMatrix to generate a corresponding {@link org.cpk.crypto.pubmatrix.PubMatrix PubMatrix} 
+ * @author zaexage@gmail.com
+ */
 public class SecMatrix {
 	static private Logger logger = Logger.getLogger(SecMatrix.class);
 	
-	/// member variables , NOTE: some variables are default access
+	// member variables , NOTE: some variables are default access
 	Vector<BigInteger> m_matrix; 
 	MapAlg m_mapAlg;
 	ECParameterSpec m_ecParam;
@@ -33,13 +38,30 @@ public class SecMatrix {
 	private KeyFactory m_keyFactory;
 	
 	/**
-	 * constructor, empty
+	 * constructor 
 	 */
 	SecMatrix() throws NoSuchAlgorithmException{
 		m_random = new SecureRandom();	
 		m_keyFactory = KeyFactory.getInstance("ECDSA");
 	}
 	
+	/**
+	 * create a new instance of SecMatrix
+	 * @param row the number of rows in matrix
+	 * @param col the number of cols in matrix
+	 * @param curveName the elliptic curve's name, refer to OpenSSL for a list, or `prime192v1' would do.
+	 * @param mapAlgName the name of mapping algorithm, which is used to map the id to a vector of index into Matrix. For now, "DigestMap_SHA512" will do
+	 * @param domainURI an optional URI for the matrix
+	 * @return a new instance of SecMatrix
+	 * @throws NoSuchAlgorithmException
+	 * @throws SecurityException
+	 * @throws IllegalArgumentException
+	 * @throws NoSuchMethodException
+	 * @throws InstantiationException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 * @throws ClassNotFoundException
+	 */
 	public static SecMatrix GenerateNewMatrix(int row, int col, String curveName, String mapAlgName, URI domainURI) throws NoSuchAlgorithmException, SecurityException, IllegalArgumentException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException
 	{
 		SecMatrix inst = new SecMatrix();
@@ -56,14 +78,30 @@ public class SecMatrix {
 		return inst;
 	}
 	
+	/**
+	 * derive corresponding {@link org.cpk.crypto.pubmatrix.PubMatrix public matrix} from this SecMatrix
+	 * @return PubMatrix instance
+	 * @throws NoSuchAlgorithmException 
+	 */
 	public PubMatrix DerivePubMatrix() throws NoSuchAlgorithmException{
 		return PubMatrix.GeneratePubMatrix(m_matrix, m_mapAlg, m_ecParam, m_domainURI);
 	}
 	
+	/**
+	 * retrieve Elliptic curve parameters
+	 * @return ECParameterSpec instance
+	 */
 	public ECParameterSpec GetEcParam(){
 		return m_ecParam;
 	}
 	
+	/**
+	 * make a mapping <id, SecMatrix> -> private key 
+	 * @param id any string of id
+	 * @return corresponding private key
+	 * @throws InvalidKeySpecException
+	 * @throws MappingAlgorithmException
+	 */
 	public PrivateKey GeneratePrivateKey(String id) 
 		throws InvalidKeySpecException, MappingAlgorithmException{
 		BigInteger biPrivkey = BigInteger.ZERO;

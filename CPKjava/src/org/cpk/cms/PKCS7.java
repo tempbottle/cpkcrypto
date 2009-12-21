@@ -69,6 +69,11 @@ import org.cpk.crypto.MappingAlgorithmException;
 import org.cpk.crypto.pubmatrix.PubMatrix;
 import org.cpk.crypto.secmatrix.SecMatrix;
 
+/**
+ * this class tries to package the encrypt, decrypt, sign, verify data in PKCS#7 standard
+ * @author zaexage@gmail.com
+ * @see <a href="http://en.wikipedia.org/wiki/PKCS">PKCS</a>
+ */
 public class PKCS7 {
 	
 	private Logger logger = Logger.getLogger(PKCS7.class);
@@ -249,6 +254,24 @@ public class PKCS7 {
 		return envData.getDEREncoded();
 	}
 	
+	/**
+	 * decrypt enveloped data, need decrypter's id and private key
+	 * @param envDataBytes data to be decrypted, enveloped in PKCS#7 standard format
+	 * @param recverid decrypter's id
+	 * @param recverPrikey decrypter's private key
+	 * @return the clear text
+	 * @throws IOException
+	 * @throws NoSuchAlgorithmException
+	 * @throws InvalidKeyException
+	 * @throws InvalidKeySpecException
+	 * @throws MappingAlgorithmException
+	 * @throws NoSuchPaddingException
+	 * @throws InvalidAlgorithmParameterException
+	 * @throws IllegalBlockSizeException
+	 * @throws BadPaddingException
+	 * @throws NoSuchProviderException
+	 * @throws InvalidParameterSpecException
+	 */
 	public byte[] Decrypt(byte[] envDataBytes, String recverid, PrivateKey recverPrikey) throws IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, MappingAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, IllegalBlockSizeException, BadPaddingException, NoSuchProviderException, InvalidParameterSpecException{
 		ASN1Sequence seq = (ASN1Sequence)DERSequence.fromByteArray(envDataBytes);
 		EnvelopedData envData = EnvelopedData.getInstance(seq);

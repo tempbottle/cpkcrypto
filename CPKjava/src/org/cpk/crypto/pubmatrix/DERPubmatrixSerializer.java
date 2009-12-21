@@ -3,7 +3,6 @@ package org.cpk.crypto.pubmatrix;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.math.BigInteger;
 import java.net.URI;
 import java.util.Vector;
 
@@ -24,20 +23,36 @@ import org.bouncycastle.math.ec.ECPoint;
 import org.cpk.crypto.MapAlgMgr;
 import org.cpk.crypto.secmatrix.SecMatrix;
 
+/**
+ * This class could serialize/de-serialize {@link org.cpk.crypto.pubmatrix.PubMatrix PubMatrix} 
+ * into/from DER encoding
+ * @author zaexage@gmail.com
+ * @see <a href=http://en.wikipedia.org/wiki/Distinguished_Encoding_Rules>DER encoding</a>
+ */
 public class DERPubmatrixSerializer implements PubMatrixSerializer {
 
-	private Logger logger = Logger.getLogger(DERPubmatrixSerializer.class);
+	private static Logger logger = Logger.getLogger(DERPubmatrixSerializer.class);
 	private InputStream m_in;
 	private OutputStream m_out;
 	
+	/**
+	 * initialize, the two parameters are both optional.
+	 * if client needs to export public matrix, then the `out' parameter must be given;
+	 * if client needs to import public matrix, then the `in' parameter must be given;   
+	 * @param in an InputStream instance which connects to a DER encoded PubMatrix
+	 * @param out an OutputStream instance where the PubMatrix will be output
+	 */
 	public DERPubmatrixSerializer(InputStream in, OutputStream out){
 		m_in = in;
 		m_out = out;
 	}
 	
-	@Override
+	/**
+	 * export the PubMatrix to the OutputStream set at initialization
+	 * @param pubmatrix the public matrix need to be exported
+	 * @throws IOException
+	 */
 	public void ExportPubMatrix(PubMatrix pubmatrix) throws IOException {
-		// TODO Auto-generated method stub
 		ASN1EncodableVector encVec = new ASN1EncodableVector();
 		encVec.add(new DERInteger(1));
 		encVec.add(new DERUTF8String(pubmatrix.m_domainURI.toString()));		
@@ -60,9 +75,11 @@ public class DERPubmatrixSerializer implements PubMatrixSerializer {
 		m_out.write(new DERSequence(encVec).getDEREncoded()); //output the whole lot
 	}
 
-	@Override
+	/**
+	 * import a Public matrix from InputStream set at initialization
+	 * @return the public matrix de-serialized from InputStream
+	 */
 	public PubMatrix GetPubMatrix() throws IOException {
-		// TODO Auto-generated method stub
 		try{
 			ASN1InputStream is = new ASN1InputStream(m_in);
 			PubMatrix pubmatrix = new PubMatrix();

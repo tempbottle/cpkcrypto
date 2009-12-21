@@ -15,6 +15,12 @@ import org.bouncycastle.math.ec.ECPoint;
 import org.cpk.crypto.MapAlg;
 import org.cpk.crypto.MappingAlgorithmException;
 
+/**
+ * this class is used to generate public key from an ID.
+ * the instance of this class should be created by an instance 
+ * of {@link org.cpk.crypto.secmatrix.SecMatrix SecMatrix}.
+ * @author zaexage@gmail.com
+ */
 public class PubMatrix {
 	
 	// member variables
@@ -62,10 +68,23 @@ public class PubMatrix {
 		return mat;
 	}
 	
+	/**
+	 * retrieve the {@link org.bouncycastle.jce.spec.ECParameterSpec ECParameterSpce}
+	 * @return elliptic curve parameters spec
+	 */
 	public ECParameterSpec GetEcParam(){
 		return m_ecParam;
 	}	
 	
+	/**
+	 * Generate a public key from an ID (possibly, a receiver's email address).
+	 * the ID is transformed with some mapping algorithm {@link org.cpk.crypto.MapAlg MapAlg},
+	 * then the corresponding public key is generated. 
+	 * @param id the receiver's id
+	 * @return generated public key
+	 * @throws InvalidKeySpecException
+	 * @throws MappingAlgorithmException
+	 */
 	public PublicKey GeneratePublicKey(String id)
 		throws InvalidKeySpecException, MappingAlgorithmException
 		{

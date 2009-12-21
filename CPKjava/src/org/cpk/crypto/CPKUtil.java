@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.security.AlgorithmParameters;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -15,10 +14,8 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
-import java.util.ArrayList;
 import java.util.Vector;
 
 import javax.crypto.BadPaddingException;
@@ -48,22 +45,22 @@ import org.cpk.crypto.secmatrix.SecMatrixSerializer;
 import org.apache.log4j.Logger;
 
 /**
- * this class provides several helpers including, sign, verify, encrypt, decrypt.
- * on the raw data(without PKCS7) 
- * @author ZaeX
+ * this class provides several helper functions including, sign, verify, encrypt, decrypt.
+ * on the raw data (without PKCS7) 
+ * @author zaexage@gmail.com
  */
 public class CPKUtil {
 
 	public static final DERObjectIdentifier ECIES = new DERObjectIdentifier("1.0.18033.2.2.1");
-	private Logger logger = Logger.getLogger(CPKUtil.class);
+	private static Logger logger = Logger.getLogger(CPKUtil.class);
 	
 	private SecMatrix m_secmatrix;
 	private PubMatrix m_pubmatrix;
 	
 	/**
-	 * just use the two initialized matrices to fill the CPKUtil class
-	 * @param secmatrix already inited instance, if not available, set it null
-	 * @param pubmatrix already inited instance, if not available, set it null
+	 * initialize the CPKUtil instance with given {@link org.cpk.crypto.secmatrix.SecMatrix secret matrix} or {@link org.cpk.crypto.pubmatrix.PubMatrix public matrix}
+	 * @param secmatrix [optional] the secret matrix used to derive private key from id
+	 * @param pubmatrix the public matrix used to derive public key from id 
 	 */
 	public CPKUtil(SecMatrix secmatrix, PubMatrix pubmatrix){
 		this.m_secmatrix = secmatrix;
@@ -73,7 +70,7 @@ public class CPKUtil {
 	/**
 	 * will use two importers to import matrices
 	 * @param secImport if not available, set it null
-	 * @param pubImport
+	 * @param pubImport PubMatrixSerializer instance
 	 * @throws IOException 
 	 */
 	public CPKUtil(SecMatrixSerializer secImport, PubMatrixSerializer pubImport) throws IOException{
@@ -84,10 +81,10 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * this method will sign the given original data based on the m_secmatrix and 
-	 * signerId
-	 * @param data
-	 * @param signerId
+	 * this method will sign the given original data based on the secret matrix and signerId;
+	 * need `secret matrix' to be set at CPKUtil initialization 
+	 * @param data a small amount of data, e.g.: the digest of a bunch of data
+	 * @param signerId the id of the entity who signed the data
 	 * @return raw signature(without PKCS#7 package)
 	 * @throws NoSuchAlgorithmException 
 	 * @throws InvalidKeyException 
@@ -108,8 +105,8 @@ public class CPKUtil {
 	
 	/**
 	 * this method will sign the given original data with the given PrivateKey
-	 * @param data
-	 * @param prikey
+	 * @param data a small amount of data, e.g.: the digest of a bunch of data
+	 * @param prikey the private key of signer
 	 * @return raw signature(without PKCS#7 package)
 	 * @throws NoSuchAlgorithmException
 	 * @throws SignatureException
@@ -127,11 +124,12 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * given the original data, signature, and signer's ID, judge the 
-	 * signature's validity
-	 * @param data
-	 * @param signerId
-	 * @return
+	 * given the original data, signature, and signer's ID, judge the signature's validity
+	 * need `public matrix' to be set at CPKUtil initialization 
+	 * @param data the original data, e.g.: the digest
+	 * @param sig the signature to be verified 
+	 * @param signerId the id of the signer
+	 * @return iff the signature is good, return true
 	 * @throws NoSuchAlgorithmException 
 	 * @throws InvalidKeyException 
 	 * @throws SignatureException 
@@ -148,12 +146,12 @@ public class CPKUtil {
 		
 	/**
 	 * encrypt the given data with ECIES algorithm, the encrypting key is generated with 
-	 * Alice's PrivateKey and Bob's Id, if param is given, the algorithm parameter is returned by that
+	 * Alice's PrivateKey and Bob's Id
 	 * [WARNING: this function only applies to small amount of data, huge data will cause heap overflow] 
 	 * @param data the original data
-	 * @param AliceId the encrypter's PrivateKey
-	 * @param BobId the receiver's id
-	 * @param param [OPTIONAL] contains the encoded AlgorithmParameter
+	 * @param AliceKey the encrypter's PrivateKey
+	 * @param BobId the decrypter's id
+	 * @param param [OPTIONAL, inout] contains the encoded AlgorithmParameter
 	 * @return encrypted data
 	 * @throws MappingAlgorithmException 
 	 * @throws InvalidKeySpecException 
@@ -179,9 +177,9 @@ public class CPKUtil {
 	 * encrypt the data from InputStream and return the encrypted byte[] 
 	 * [WARNING: this function only applies to small amount of data, huge data will cause heap overflow]
 	 * @param is input stream
-	 * @param AliceKey private key used to encrypt
-	 * @param BobId recver's id
-	 * @param param [OPTIONAL][in,out] encryption algorithm
+	 * @param AliceKey encrypter's private key
+	 * @param BobId decrypter's id
+	 * @param param [OPTIONAL][inout] encryption algorithm parameter
 	 * @return encrypted data
 	 * @throws MappingAlgorithmException 
 	 * @throws InvalidKeySpecException 
@@ -210,14 +208,14 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * encrypt the data from given InputStream, and output 
-	 * 1) ECIES algorithm parameters and encrypted symmetry session key to output stream 
-	 * 2) the cipher text to given Output Stream
+	 * encrypt the data from given InputStream, and output:<br>
+	 * 1) ECIES algorithm parameters and encrypted symmetry session key to output stream <br>
+	 * 2) the cipher text to given OutputStream<br>
 	 * [NOTE: this function could handle huge amount of data]
 	 * @param is stream where data comes from
 	 * @param os stream where result goes to
-	 * @param AliceKey the private key used to encrypt
-	 * @param BobId the recver's id, used to generate public key for encryption	 
+	 * @param AliceKey encrypter's private key
+	 * @param BobId the decrypter's id, used to generate public key for encryption	 
 	 * @throws InvalidKeyException
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
@@ -261,11 +259,11 @@ public class CPKUtil {
 	}
 	
 	/**
-	 * Decrypt the given cipherData, with the receiver(Bob)'s private key and
-	 * Sender(Alice)'s id
+	 * Decrypt the given cipherData, with the decrypter(Bob)'s private key and
+	 * encrypter(Alice)'s id
 	 * @param cipherData the cipher text
-	 * @param BobKey the receiver's private key
-	 * @param AliceId the sender's id
+	 * @param BobKey the decrypter's private key
+	 * @param AliceId the encrypter's id
 	 * @return the clear text
 	 * @throws MappingAlgorithmException 
 	 * @throws InvalidKeySpecException 
@@ -287,10 +285,10 @@ public class CPKUtil {
 	
 	/**
 	 * decrypt data from given InputStream, output the decrypted data in byte[]
-	 * @param is
-	 * @param BobKey
-	 * @param AliceId
-	 * @param param
+	 * @param is the InputStream where the cipher text comes
+	 * @param BobKey the decrypter's private key
+	 * @param AliceId the encrypter's id
+	 * @param param the algorithm's parameters
 	 * @return the clear data in byte[]
 	 * @throws InvalidKeyException
 	 * @throws InvalidKeySpecException
@@ -323,8 +321,8 @@ public class CPKUtil {
 	 * decrypt the data from given InputStream with session key, output the decrypted data to given OutputStream
 	 * @param is the InputStram where encrypted data comes from
 	 * @param os the OutputStream where decrypted data goes to
-	 * @param BobKey the recver's PrivateKey
-	 * @param AliceId the sender's ID	 	 
+	 * @param BobKey the decrypter's PrivateKey
+	 * @param AliceId the encrypter's ID	 	 
 	 * @throws InvalidKeyException
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
@@ -382,8 +380,8 @@ public class CPKUtil {
 	
 	/**
 	 * Digest given data with specified algorithm, return the digest.
-	 * @param data
-	 * @param alg
+	 * @param data the original data
+	 * @param alg the message digest algorithm's name
 	 * @return the produced digest
 	 * @throws NoSuchAlgorithmException 
 	 */
@@ -394,9 +392,9 @@ public class CPKUtil {
 	
 	/**
 	 * generate a group of private keys according to a group of ids
-	 * @param ids
-	 * @param secmatrix
-	 * @return
+	 * @param ids a vector of id
+	 * @param secmatrix the secret matrix
+	 * @return a vector filled with corresponding PrivateKey
 	 * @throws InvalidKeySpecException
 	 * @throws MappingAlgorithmException
 	 */
@@ -410,8 +408,8 @@ public class CPKUtil {
 	
 	/**
 	 * init the AlgorithmParameters from previously encoded byte[]
-	 * @param parameters
-	 * @param algParam 
+	 * @param parameters the encoded parameters
+	 * @param algParam the instance to be initialized with the encoded byte[]
 	 * @throws IOException
 	 * @throws InvalidParameterSpecException
 	 */
@@ -430,10 +428,10 @@ public class CPKUtil {
 	
 	/**
 	 * this private function extracts some common parts for all versions of Encrypt()
-	 * @param AliceKey
-	 * @param BobId
-	 * @param param
-	 * @return
+	 * @param AliceKey encrypter's private key
+	 * @param BobId decrypter's id
+	 * @param param [inout, OPTIONAL] algorithm parameter
+	 * @return prepared Cipher instance
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
 	 * @throws NoSuchPaddingException
@@ -470,10 +468,10 @@ public class CPKUtil {
 	
 	/**
 	 * some common code for all versions of Decrypt()
-	 * @param BobKey the recver's private key
-	 * @param AliceId the sender's ID
-	 * @param param the AlgorithmParameter to init Cipher
-	 * @return init-ed Cipher
+	 * @param BobKey the decrypter's private key
+	 * @param AliceId the encrypter's ID
+	 * @param param the AlgorithmParameter to initialize Cipher
+	 * @return prepared Cipher instance
 	 * @throws InvalidKeySpecException
 	 * @throws NoSuchAlgorithmException
 	 * @throws NoSuchPaddingException
