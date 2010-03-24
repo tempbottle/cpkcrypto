@@ -58,7 +58,7 @@ public class Cmdline {
 	public static void main(String[] args){
 		// TODO Auto-generated method stub
 		try{
-			PropertyConfigurator.configure(Cmdline.class.getResource("log4j.properties"));
+			PropertyConfigurator.configure(Cmdline.class.getResource("/log4j.properties"));
 		}catch(Exception ex){
 			System.err.println("log4j not properly configured, ignored...");
 		}
