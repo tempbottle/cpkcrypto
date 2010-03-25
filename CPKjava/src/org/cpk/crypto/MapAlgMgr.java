@@ -29,8 +29,8 @@ public class MapAlgMgr {
 	 */
 	static public void Configure(String name_class, String id_name) throws IOException{
 		//try to load from classpath
-		InputStream name_class_is = MapAlgMgr.class.getResourceAsStream("/"+name_class);
-		InputStream id_name_is = MapAlgMgr.class.getResourceAsStream("/"+id_name);
+		InputStream name_class_is = MapAlgMgr.class.getResourceAsStream(name_class);
+		InputStream id_name_is = MapAlgMgr.class.getResourceAsStream(id_name);
 						
 		s_name_class_mapping.load(new BufferedReader(new InputStreamReader(name_class_is, "UTF-8")));
 		s_id_name_mapping.load(new BufferedReader(new InputStreamReader(id_name_is, "UTF-8")));
