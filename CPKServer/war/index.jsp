@@ -16,7 +16,7 @@
   </head>
 
   <body>
-    <h1>Thank you for trying CPK keygen</h1><br>
+    <h2>Thank you for trying CPK keygen</h2><br>
     <%
        String strTimeZone = application.getInitParameter("TimeZone");
        Calendar c = Calendar.getInstance(TimeZone.getTimeZone(strTimeZone));
@@ -26,11 +26,19 @@
 	
     <table>
       <tr>
-        <td colspan="2" style="font-weight:bold;">Please authenticate with openid first:</td>        
+        <td colspan="2" style="font-weight:bold;">If you want to get private key or get a Certificate, you need to authenticate with openid first</td>        
+      </tr>      
+      <tr>
+        <td><a href="/keygen/GenKey">Get A PrivateKey</a></td>
       </tr>
       <tr>
-        <td><a href="/keygen/GenKey">Authenticate me!</a></td>
+        <td><a href="/keygen/GenCert">Get A Certificate</a></td>
       </tr>
     </table>
+    
+    <br>
+    If you only want to get the public matrix, just <a href="/GetPubMatrix">download it</a>
+    Also, you could <a href="/GetRootCert">download</a> the root certificate of CPK keygen server
+    
   </body>
 </html>

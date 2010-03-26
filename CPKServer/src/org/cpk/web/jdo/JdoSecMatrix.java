@@ -22,36 +22,46 @@ public class JdoSecMatrix {
 	@Persistent private Blob bytesSecmatrix;	
 	@Persistent private Date start; //start time of secmatrix	 
 	@Persistent private Date end; //end time of secmatrix
+	@Persistent private Integer certSerial; //the cert serial, start at 1
 	
 	public JdoSecMatrix(byte[] bSecmatrix, Date dStart, Date dEnd){
 		bytesSecmatrix = new Blob(bSecmatrix);
 		start = dStart;
 		end = dEnd;
+		certSerial = Integer.valueOf(1);
 	}
 
 	///getters and setters
-	public Blob get_bytesSecmatrix() {
+	public Blob getBytesSecmatrix() {
 		return bytesSecmatrix;
-	}	
+	}
 
-	public Date get_start() {
+	public Date getStart() {
 		return start;
 	}
 
-	public Date get_end() {
+	public Date getEnd() {
 		return end;
 	}
-	
-	public void set_bytesSecmatrix(Blob mBytesSecmatrix) {
-		bytesSecmatrix = mBytesSecmatrix;
+
+	public Integer getCertSerial() {
+		return certSerial;
 	}
 
-	public void set_start(Date mStart) {
-		start = mStart;
+	public void setBytesSecmatrix(Blob bytesSecmatrix) {
+		this.bytesSecmatrix = bytesSecmatrix;
 	}
 
-	public void set_end(Date mEnd) {
-		end = mEnd;
+	public void setStart(Date start) {
+		this.start = start;
+	}
+
+	public void setEnd(Date end) {
+		this.end = end;
+	}
+
+	public void setCertSerial(Integer certSerial) {
+		this.certSerial = certSerial;
 	}
 	
 }

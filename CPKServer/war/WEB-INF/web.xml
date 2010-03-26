@@ -14,6 +14,7 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		</init-param>
   	</filter> 
 
+	<!-- the activities concerning about keygen must be authenticated first -->
 	<filter-mapping>
 		<filter-name>openid-filter</filter-name>
 		<url-pattern>/keygen/*</url-pattern>
@@ -54,6 +55,8 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<url-pattern>/keygen/GenKeyAndCert</url-pattern>
 		<url-pattern>/keygen/GenKey</url-pattern>
 		<url-pattern>/keygen/GenCert</url-pattern>
+		<url-pattern>/GetPubMatrix</url-pattern>
+		<url-pattern>/GetRootCert</url-pattern>
 	</servlet-mapping>
 	
 	<welcome-file-list>
