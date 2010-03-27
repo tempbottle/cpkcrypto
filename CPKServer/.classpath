@@ -6,6 +6,6 @@
 	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/apache-log4j-1.2.15/apache-log4j-1.2.15/log4j-1.2.15.jar"/>
 	<classpathentry kind="lib" path="war/WEB-INF/lib/dyuproject-openid-oauth-1.1.6-jarjar.jar"/>
 	<classpathentry kind="lib" path="war/WEB-INF/lib/CPKjava.jar" sourcepath="/CPKjava/src"/>
-	<classpathentry kind="lib" path="war/WEB-INF/lib/bcprov-jdk16-141.jar"/>
+	<classpathentry kind="lib" path="war/WEB-INF/lib/bcprov-jdk16-145.jar"/>
 	<classpathentry kind="output" path="war/WEB-INF/classes"/>
 </classpath>

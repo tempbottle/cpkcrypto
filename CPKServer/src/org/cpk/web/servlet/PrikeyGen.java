@@ -10,12 +10,14 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Calendar;
 import java.util.Date;
@@ -122,8 +124,9 @@ public class PrikeyGen extends HttpServlet {
 			//if can find in JDO store, then deserialize it;
 			//or create a new instance of SecMatrix and serialize to store
 			
+			m_appURI = config.getServletContext().getInitParameter("AppURI");
 			m_timeZone = config.getServletContext().getInitParameter("TimeZone");
-			logger.debug("timezone="+m_timeZone);
+			logger.debug("timezone="+m_timeZone+"; appURI = "+m_appURI);
 			Calendar c = Calendar.getInstance(TimeZone.getTimeZone(m_timeZone));
 			int year = c.get(Calendar.YEAR);
 			c.clear();
@@ -137,6 +140,8 @@ public class PrikeyGen extends HttpServlet {
 			Query query = pm.newQuery(JdoSecMatrix.class, "this.start == date");
 			query.declareParameters("java.util.Date date");
 			List<JdoSecMatrix> result = (List<JdoSecMatrix>)query.execute(m_notBefore);
+			
+			
 
 			if(result.isEmpty()){
 				//not found, create new instance
@@ -146,8 +151,7 @@ public class PrikeyGen extends HttpServlet {
 				int colCnt = Integer.parseInt(config.getInitParameter(COL_CNT));
 				String mapAlg = config.getInitParameter(MAP_ALG);
 
-				logger.info("generating secmatrix...");
-				m_appURI = config.getServletContext().getInitParameter("AppURI");			
+				logger.info("generating secmatrix...");							
 				secMatrix = SecMatrix.GenerateNewMatrix(rowCnt, colCnt, ecCurveName, mapAlg, new URI(m_appURI));
 				ByteArrayOutputStream baos = new ByteArrayOutputStream();
 				DERSecmatrixSerializer serial = new DERSecmatrixSerializer(null, baos);
@@ -164,8 +168,8 @@ public class PrikeyGen extends HttpServlet {
 				logger.info("found in storage, deserialize it...");
 				assert(result.size() == 1);
 				
-				JdoSecMatrix jdoSecMatrix = result.get(0);
-				ByteArrayInputStream bais = new ByteArrayInputStream(jdoSecMatrix.getBytesSecmatrix().getBytes());
+				m_storeData = result.get(0);
+				ByteArrayInputStream bais = new ByteArrayInputStream(m_storeData.getBytesSecmatrix().getBytes());
 				DERSecmatrixSerializer serial = new DERSecmatrixSerializer(bais, null);
 				secMatrix = serial.GetSecMatrix();
 				
@@ -184,6 +188,7 @@ public class PrikeyGen extends HttpServlet {
 			m_bytesPubMatrix = baos.toByteArray();
 			logger.info("generated serialized pubmatrix for retrieval");
 			
+			logger.debug("going to generate server private key for: " + m_appURI);
 			m_serverPrivateKey = m_secMatrix.GeneratePrivateKey(m_appURI);
 			logger.info("generated the server's private key");
 			
@@ -193,7 +198,8 @@ public class PrikeyGen extends HttpServlet {
 			m_serverCertificate = CreateCertificate(
 					m_serverPrivateKey, 
 					m_serverPublicKey,
-					m_appURI);
+					m_appURI,
+					Integer.valueOf(1));
 			logger.info("generated the server's self-signed certificate");
 			
 		}catch (Exception e) {
@@ -228,7 +234,7 @@ public class PrikeyGen extends HttpServlet {
 	}
 	
 	private void ReturnUserCert(HttpServletRequest req, HttpServletResponse resp)
-	throws InvalidKeySpecException, MappingAlgorithmException, CertificateEncodingException, InvalidKeyException, NoSuchAlgorithmException, SignatureException, IOException{
+	throws InvalidKeySpecException, MappingAlgorithmException, InvalidKeyException, NoSuchAlgorithmException, SignatureException, IOException, CertificateException, NoSuchProviderException{
 		logger.debug("returning user cert");
 		OpenIdUser user = (OpenIdUser)req.getAttribute(OpenIdUser.ATTR_NAME);
 		Map<String,String> axschema = AxSchemaExtension.get(user);
@@ -236,7 +242,8 @@ public class PrikeyGen extends HttpServlet {
 		logger.debug("generate public key, id = " + email);
 		PublicKey pubKey = m_pubMatrix.GeneratePublicKey(email);
 		logger.debug("generate user certificate");
-		Certificate cert = CreateCertificate(m_serverPrivateKey, pubKey, email);
+		Integer serial = IncCertSerial();
+		Certificate cert = CreateCertificate(m_serverPrivateKey, pubKey, email, serial);
 		TransferToClient(cert.getEncoded(), resp);
 		logger.debug("returning user cert...done");		
 	}
@@ -250,8 +257,10 @@ public class PrikeyGen extends HttpServlet {
 	}
 	
 	private void TransferToClient(byte[] data, HttpServletResponse resp) throws IOException{
+		logger.debug("data length: " + data.length);
 		BufferedOutputStream bos = new BufferedOutputStream(resp.getOutputStream());
 		bos.write(data);
+		bos.flush();
 	}
 	
 	/**
@@ -259,23 +268,38 @@ public class PrikeyGen extends HttpServlet {
 	 * @param prikey the issuer's private key
 	 * @param pubkey the subject's public key
 	 * @param subject the subject's CN
+	 * @param serial the serial number of certificate
 	 * @return created certificate
+	 * @throws NoSuchProviderException 
+	 * @throws CertificateException 
 	 */
-	private Certificate CreateCertificate(PrivateKey prikey, PublicKey pubkey, String subject)
-		throws IOException, CertificateEncodingException,
-		NoSuchAlgorithmException, SignatureException, InvalidKeyException {
+	private Certificate CreateCertificate(PrivateKey prikey,
+			PublicKey pubkey,
+			String subject,
+			Integer serial)
+		throws IOException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, CertificateException, NoSuchProviderException {
 		X509V3CertificateGenerator certGen = new X509V3CertificateGenerator();
-		certGen.setIssuerDN(new X500Principal("CN="+m_appURI+", OU=CPK, O=CPK, C=CN"));
+		logger.info("Generate certificate for: " + subject);
+		String issueDN = "CN="+m_appURI+", OU=CPK, O=CPK, C=CN";
+		certGen.setIssuerDN(new X500Principal(issueDN));
 		
 		certGen.setNotAfter(m_notAfter);
 		certGen.setNotBefore(m_notBefore);
 
 		certGen.setPublicKey(pubkey);		
-		certGen.setSerialNumber(new BigInteger(IncCertSerial().toString()));
-		certGen.setSignatureAlgorithm("SHA1withEC");		
-		certGen.setSubjectDN(new X500Principal("CN="+subject+", OU=Unknown, O=Unknown, C=CN"));
+		certGen.setSerialNumber(new BigInteger(serial.toString()));
+		certGen.setSignatureAlgorithm("SHA1withECDSA");
+		if(subject.equals(m_appURI))
+			certGen.setSubjectDN(new X500Principal(issueDN));
+		else
+			certGen.setSubjectDN(new X500Principal("CN="+subject+", OU=Unknown, O=Unknown, C=CN"));
 
 		Certificate cert = certGen.generate(prikey);
+		
+		logger.debug("try verifying the certificate");
+		cert.verify(m_serverPublicKey);
+		
+		logger.info("Generate certificate for: " + subject + " ...done");
 		return cert;
 	}
 	

@@ -28,7 +28,7 @@ public class JdoSecMatrix {
 		bytesSecmatrix = new Blob(bSecmatrix);
 		start = dStart;
 		end = dEnd;
-		certSerial = Integer.valueOf(1);
+		certSerial = Integer.valueOf(2); //1 is taken by server
 	}
 
 	///getters and setters
