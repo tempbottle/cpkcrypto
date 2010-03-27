@@ -110,7 +110,7 @@ public class SecMatrix {
 			try{
 				 indices = m_mapAlg.doMap(id, m_matrix.size());
 			}catch(Exception ex){
-				logger.error(ex.getMessage());
+				logger.error(ex.getMessage(), ex);
 				throw new MappingAlgorithmException("Failed to execute method doMap");
 			}
 			
