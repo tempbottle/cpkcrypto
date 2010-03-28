@@ -9,11 +9,13 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
+import org.bouncycastle.jce.provider.JCEECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.ECPublicKeySpec;
 import org.bouncycastle.math.ec.ECPoint;
 import org.cpk.crypto.MapAlg;
 import org.cpk.crypto.MappingAlgorithmException;
+import org.cpk.crypto.secmatrix.BCSetting;
 
 /**
  * this class is used to generate public key from an ID.
@@ -29,12 +31,13 @@ public class PubMatrix {
 	MapAlg m_mapAlg;
 	ECParameterSpec m_ecParam;
 	URI m_domainURI;
-	private KeyFactory m_keyFactory;
+	private KeyFactory m_keyFactory = null; //only usable when BC provider is added
 	
 	// methods
 	PubMatrix() throws NoSuchAlgorithmException{
 		logger.debug("PubMatrix instance constructed");
-		m_keyFactory = KeyFactory.getInstance("ECDSA");		
+		if( BCSetting.getInstance().IsUseBCProvider() )
+			m_keyFactory = KeyFactory.getInstance("ECDSA");		
 	}
 	
 	/**
@@ -108,7 +111,12 @@ public class PubMatrix {
 			ECPublicKeySpec pubSpec = new ECPublicKeySpec(
 					pt, m_ecParam);
 			
-			PublicKey pubKey = m_keyFactory.generatePublic(pubSpec);
+			PublicKey pubKey = null;
+			if(BCSetting.getInstance().IsUseBCProvider()){
+				pubKey = m_keyFactory.generatePublic(pubSpec);
+			}else{
+				pubKey = new JCEECPublicKey("ECDSA", pubSpec);
+			}
 			return pubKey;
 		}catch(InvalidKeySpecException ex){
 			logger.error("GeneratePublicKey failed: publicKey value= ("

@@ -3,23 +3,22 @@ package org.cpk.crypto.secmatrix;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
 import java.net.URI;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Vector;
+
+import org.apache.log4j.Logger;
+import org.bouncycastle.jce.ECNamedCurveTable;
+import org.bouncycastle.jce.provider.JCEECPrivateKey;
+import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.jce.spec.ECPrivateKeySpec;
 import org.cpk.crypto.MapAlg;
 import org.cpk.crypto.MapAlgMgr;
 import org.cpk.crypto.MappingAlgorithmException;
 import org.cpk.crypto.pubmatrix.PubMatrix;
-
-import java.security.SecureRandom;
-import java.security.spec.InvalidKeySpecException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.KeyFactory;
-
-import org.bouncycastle.jce.ECNamedCurveTable;
-import org.bouncycastle.jce.spec.ECParameterSpec;
-import org.bouncycastle.jce.spec.ECPrivateKeySpec;
-
-import org.apache.log4j.Logger;
 
 /**
  * Secret matrix is used to derive user's private key from given id. 
@@ -35,14 +34,15 @@ public class SecMatrix {
 	ECParameterSpec m_ecParam;
 	URI m_domainURI;
 	private SecureRandom m_random;
-	private KeyFactory m_keyFactory;
+	private KeyFactory m_keyFactory = null; //only usable when BC provider is added
 	
 	/**
 	 * constructor 
 	 */
 	SecMatrix() throws NoSuchAlgorithmException{
 		m_random = new SecureRandom();	
-		m_keyFactory = KeyFactory.getInstance("ECDSA");
+		if(BCSetting.getInstance().IsUseBCProvider())
+			m_keyFactory = KeyFactory.getInstance("ECDSA");
 	}
 	
 	/**
@@ -119,7 +119,14 @@ public class SecMatrix {
 				biPrivkey = biPrivkey.add(m_matrix.get(index));
 			}
 			ECPrivateKeySpec privSpec = new ECPrivateKeySpec(biPrivkey, m_ecParam);
-			return m_keyFactory.generatePrivate(privSpec);
+			
+			PrivateKey priKey = null;
+			if( BCSetting.getInstance().IsUseBCProvider() ){
+				priKey = m_keyFactory.generatePrivate(privSpec);
+			}else{
+				priKey = new JCEECPrivateKey("ECDSA", privSpec);
+			}
+			return priKey;
 		}catch(InvalidKeySpecException ex){
 			logger.error("GeneratePrivateKey failed: privkey value=" + biPrivkey.toString(16));
 			throw ex;
