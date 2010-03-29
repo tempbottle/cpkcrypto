@@ -24,6 +24,7 @@ public class MapAlgMsgDigest implements MapAlg {
 	@Override
 	public Vector<Integer> doMap(String id, int size)
 		throws NoSuchAlgorithmException, UnsupportedEncodingException{
+		logger.debug("DigestName: " + m_dgstName);
 		MessageDigest dgst = MessageDigest.getInstance(m_dgstName);
 		if ( dgst.getDigestLength() * 8 < size ){
 			logger.error("the length of digest not long enough, algorithm length = " + dgst.getDigestLength() * 8);

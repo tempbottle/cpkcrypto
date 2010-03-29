@@ -42,7 +42,7 @@ public class SecMatrix {
 	SecMatrix() throws NoSuchAlgorithmException{
 		m_random = new SecureRandom();	
 		if(BCSetting.getInstance().IsUseBCProvider())
-			m_keyFactory = KeyFactory.getInstance("ECDSA");
+			m_keyFactory = KeyFactory.getInstance("EC");
 	}
 	
 	/**
@@ -124,7 +124,7 @@ public class SecMatrix {
 			if( BCSetting.getInstance().IsUseBCProvider() ){
 				priKey = m_keyFactory.generatePrivate(privSpec);
 			}else{
-				priKey = new JCEECPrivateKey("ECDSA", privSpec);
+				priKey = new JCEECPrivateKey("EC", privSpec);
 			}
 			return priKey;
 		}catch(InvalidKeySpecException ex){

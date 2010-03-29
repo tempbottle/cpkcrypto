@@ -37,7 +37,7 @@ public class PubMatrix {
 	PubMatrix() throws NoSuchAlgorithmException{
 		logger.debug("PubMatrix instance constructed");
 		if( BCSetting.getInstance().IsUseBCProvider() )
-			m_keyFactory = KeyFactory.getInstance("ECDSA");		
+			m_keyFactory = KeyFactory.getInstance("EC");		
 	}
 	
 	/**
@@ -115,7 +115,7 @@ public class PubMatrix {
 			if(BCSetting.getInstance().IsUseBCProvider()){
 				pubKey = m_keyFactory.generatePublic(pubSpec);
 			}else{
-				pubKey = new JCEECPublicKey("ECDSA", pubSpec);
+				pubKey = new JCEECPublicKey("EC", pubSpec);
 			}
 			return pubKey;
 		}catch(InvalidKeySpecException ex){

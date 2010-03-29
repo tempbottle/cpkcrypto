@@ -12,7 +12,10 @@ public class BCSetting {
 	private static BCSetting m_instance = null;
 	
 	public static synchronized BCSetting getInstance(boolean bUseBCprovider){
-		return m_instance == null ? new BCSetting(bUseBCprovider) : m_instance;
+		if( m_instance == null ){
+			m_instance = new BCSetting(bUseBCprovider);			
+		}
+		return m_instance;
 	}
 	public static BCSetting getInstance(){
 		return getInstance(true); //default, we use BC provider

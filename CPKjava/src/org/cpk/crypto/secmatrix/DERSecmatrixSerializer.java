@@ -101,7 +101,7 @@ public class DERSecmatrixSerializer implements SecMatrixSerializer {
 			
 			return secmatrix;
 		}catch(Exception ex){
-			logger.error("DERSecmatrixSerializer.GetSecMatrix failed: " + ex.toString());
+			logger.error("DERSecmatrixSerializer.GetSecMatrix failed", ex);
 			throw new IOException(ex);
 		}				
 	}

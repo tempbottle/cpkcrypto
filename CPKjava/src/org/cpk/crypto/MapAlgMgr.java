@@ -1,5 +1,6 @@
 package org.cpk.crypto;
 
+import java.util.Collection;
 import java.util.Properties;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -49,6 +50,7 @@ public class MapAlgMgr {
 	 * @throws ClassNotFoundException
 	 */
 	static public MapAlg GetMapAlg(String algNameWithParam)	throws SecurityException, NoSuchMethodException, IllegalArgumentException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException{
+		logger.info("GetMapAlg: algNameWithParam:" + algNameWithParam);
 		String[] splitted = algNameWithParam.split("_", 2);
 		String algName = splitted[0];		
 		String classname = s_name_class_mapping.getProperty(algName);
@@ -58,8 +60,10 @@ public class MapAlgMgr {
 			Class c = Class.forName(classname);
 			if(splitted.length > 1){ //if has parameter
 				Constructor<MapAlg> con = c.getConstructor(String.class);
+				logger.info("MapAlg: param: " + splitted[1]);
 				return (MapAlg)con.newInstance(splitted[1]);
 			}else{
+				logger.info("MapAlg: param: No param");
 				return (MapAlg)c.newInstance();
 			}			 			
 		}		
@@ -80,5 +84,16 @@ public class MapAlgMgr {
 	static public MapAlg GetMapAlgByOID(String oid) throws SecurityException, IllegalArgumentException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, ClassNotFoundException{
 		String algNameWithParam = s_id_name_mapping.getProperty(oid);
 		return GetMapAlg(algNameWithParam);
+	}
+	
+	static public String GetAvailMapAlgName(){
+		Collection names = s_id_name_mapping.values();
+		assert(names.size() > 0);
+		String name = null;
+		for(Object o : names){
+			name = (String)o;
+			break;
+		}
+		return name;
 	}
 }
