@@ -19,13 +19,17 @@ public class JdoSecMatrix {
 	@Persistent(valueStrategy = IdGeneratorStrategy.IDENTITY)
     private Key key;
 	
-	@Persistent private Blob bytesSecmatrix;	
+	@Persistent private Blob bytesSecmatrix;		
 	@Persistent private Date start; //start time of secmatrix	 
 	@Persistent private Date end; //end time of secmatrix
 	@Persistent private Integer certSerial; //the cert serial, start at 1
+	@Persistent private Blob bytesPubmatrix;
 	
-	public JdoSecMatrix(byte[] bSecmatrix, Date dStart, Date dEnd){
+	public JdoSecMatrix(byte[] bSecmatrix, Date dStart, Date dEnd,
+			byte[] bPubmatrix
+		){
 		bytesSecmatrix = new Blob(bSecmatrix);
+		bytesPubmatrix = new Blob(bPubmatrix);
 		start = dStart;
 		end = dEnd;
 		certSerial = Integer.valueOf(2); //1 is taken by server
@@ -35,6 +39,10 @@ public class JdoSecMatrix {
 	public Blob getBytesSecmatrix() {
 		return bytesSecmatrix;
 	}
+
+	public Blob getBytesPubmatrix() {
+		return bytesPubmatrix;
+	}	
 
 	public Date getStart() {
 		return start;
@@ -52,6 +60,10 @@ public class JdoSecMatrix {
 		this.bytesSecmatrix = bytesSecmatrix;
 	}
 
+	public void setBytesPubmatrix(Blob bytesPubmatrix) {
+		this.bytesPubmatrix = bytesPubmatrix;
+	}
+
 	public void setStart(Date start) {
 		this.start = start;
 	}
@@ -62,6 +74,5 @@ public class JdoSecMatrix {
 
 	public void setCertSerial(Integer certSerial) {
 		this.certSerial = certSerial;
-	}
-	
+	}	
 }

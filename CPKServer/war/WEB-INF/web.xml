@@ -34,7 +34,7 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<servlet-class>org.cpk.web.servlet.PrikeyGen</servlet-class>
 		<init-param>
             <param-name>EcCurveName</param-name>
-            <param-value>secp192k1</param-value>            
+            <param-value>prime192v1</param-value>            
         </init-param>
         <init-param>
             <param-name>ColCnt</param-name>
@@ -44,15 +44,15 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
             <param-name>RowCnt</param-name>
             <param-value>16</param-value>            
         </init-param>
-        <init-param>
-            <param-name>MappingAlg</param-name>
-            <param-value>DigestMap_SHA512</param-value>            
-        </init-param>		
+<!--        <init-param>-->
+<!--            <param-name>MappingAlg</param-name>-->
+<!--            <param-value>DigestMap_SHA512</param-value>            -->
+<!--        </init-param>		-->
 		<load-on-startup>1</load-on-startup>				
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>keygen</servlet-name>
-		<url-pattern>/keygen/GenKeyAndCert</url-pattern>
+<!--		<url-pattern>/keygen/GenKeyAndCert</url-pattern>-->
 		<url-pattern>/keygen/GenKey</url-pattern>
 		<url-pattern>/keygen/GenCert</url-pattern>
 		<url-pattern>/GetPubMatrix</url-pattern>
@@ -64,13 +64,13 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 	</welcome-file-list>
 	
 	<!--  every link should be accessed with HTTPS -->
-	<security-constraint>
-        <web-resource-collection>
-            <url-pattern>/*</url-pattern>
-            <url-pattern>/**</url-pattern>
-        </web-resource-collection>
-        <user-data-constraint>
-            <transport-guarantee>CONFIDENTIAL</transport-guarantee>
-        </user-data-constraint>
-    </security-constraint>
+<!--	<security-constraint>-->
+<!--        <web-resource-collection>-->
+<!--            <url-pattern>/*</url-pattern>-->
+<!--            <url-pattern>/**</url-pattern>-->
+<!--        </web-resource-collection>-->
+<!--        <user-data-constraint>-->
+<!--            <transport-guarantee>CONFIDENTIAL</transport-guarantee>-->
+<!--        </user-data-constraint>-->
+<!--    </security-constraint>-->
 </web-app>

@@ -1,11 +1,9 @@
 package org.cpk.web.servlet;
 
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.net.URI;
 import java.security.InvalidKeyException;
@@ -23,7 +21,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.util.Set;
 import java.util.TimeZone;
 
 import javax.jdo.PersistenceManager;
@@ -36,12 +34,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.x509.X509V3CertificateGenerator;
 import org.cpk.crypto.MapAlgMgr;
 import org.cpk.crypto.MappingAlgorithmException;
 import org.cpk.crypto.pubmatrix.DERPubmatrixSerializer;
 import org.cpk.crypto.pubmatrix.PubMatrix;
+import org.cpk.crypto.secmatrix.BCSetting;
 import org.cpk.crypto.secmatrix.DERSecmatrixSerializer;
 import org.cpk.crypto.secmatrix.SecMatrix;
 import org.cpk.web.jdo.JdoSecMatrix;
@@ -60,7 +57,7 @@ public class PrikeyGen extends HttpServlet {
 	
 	/// strings indicating uri
 	private static final String GENKEY = "/keygen/GenKey";
-	private static final String GENKEY_CERT = "/keygen/GenKeyAndCert";
+//	private static final String GENKEY_CERT = "/keygen/GenKeyAndCert";
 	private static final String GENCERT = "/keygen/GenCert";
 	private static final String GET_PUBMATRIX = "/GetPubMatrix";
 	private static final Object GET_ROOTCERT = "/GetRootCert";
@@ -69,7 +66,7 @@ public class PrikeyGen extends HttpServlet {
 	private static final String EC_CURVE_NAME = "EcCurveName";
 	private static final String ROW_CNT = "RowCnt";
 	private static final String COL_CNT = "ColCnt";
-	private static final String MAP_ALG = "MappingAlg";
+//	private static final String MAP_ALG = "MappingAlg";
 	
 	
 	///secmatrix & pubmatrix
@@ -104,6 +101,11 @@ public class PrikeyGen extends HttpServlet {
 		
 		logger.info("Initialization start");
 		
+//		Set<String> set = Security.getAlgorithms("MessageDigest");
+//		for(String s : set){
+//			logger.info("Dgst: " + s);
+//		}
+		
 		try{
 			MapAlgMgr.Configure("MapAlg.properties", "OIDMapAlg.properties");
 		}catch(Exception ex){
@@ -112,10 +114,13 @@ public class PrikeyGen extends HttpServlet {
 			throw new ServletException("PrikeyGen Init failed", ex);		
 		}	
 		
-		if( -1 == Security.addProvider(new BouncyCastleProvider())){ //add this provider
-			logger.error("Failed to add BouncyCastleProvider");
-			throw new ServletException("PrikeyGen init failed");			
-		}
+//		if( -1 == Security.addProvider(new BouncyCastleProvider())){ //add this provider
+//			logger.error("Failed to add BouncyCastleProvider");
+//			throw new ServletException("PrikeyGen init failed");			
+//		}
+		
+		BCSetting.getInstance(false); //indicate we'll not use BC provider but BC lightweight api
+		assert(BCSetting.getInstance().IsUseBCProvider() == false);
 		
 		PersistenceManager pm = PMF.get().getPersistenceManager();
 		SecMatrix secMatrix = null;
@@ -140,29 +145,44 @@ public class PrikeyGen extends HttpServlet {
 			Query query = pm.newQuery(JdoSecMatrix.class, "this.start == date");
 			query.declareParameters("java.util.Date date");
 			List<JdoSecMatrix> result = (List<JdoSecMatrix>)query.execute(m_notBefore);
-			
-			
-
+	
 			if(result.isEmpty()){
 				//not found, create new instance
 				logger.info("not found, create new one");
 				String ecCurveName = config.getInitParameter(EC_CURVE_NAME);
 				int rowCnt = Integer.parseInt(config.getInitParameter(ROW_CNT));
 				int colCnt = Integer.parseInt(config.getInitParameter(COL_CNT));
-				String mapAlg = config.getInitParameter(MAP_ALG);
+//				String mapAlg = config.getInitParameter(MAP_ALG);
+				String mapAlg = MapAlgMgr.GetAvailMapAlgName();
 
 				logger.info("generating secmatrix...");							
 				secMatrix = SecMatrix.GenerateNewMatrix(rowCnt, colCnt, ecCurveName, mapAlg, new URI(m_appURI));
 				ByteArrayOutputStream baos = new ByteArrayOutputStream();
 				DERSecmatrixSerializer serial = new DERSecmatrixSerializer(null, baos);
 				serial.ExportSecMatrix(secMatrix);
+				byte[] bSecmatrix = baos.toByteArray();
 				
 				logger.info("generating secmatrix...done");
 				
-				logger.info("serializing secmatrix...");
-				m_storeData = new JdoSecMatrix(baos.toByteArray(), m_notBefore, m_notAfter);
+				/// generate pubmatrix from secmatrix
+				logger.info("generate pubmatrix, this may take some time...");
+				m_secMatrix = secMatrix;			
+				m_pubMatrix = secMatrix.DerivePubMatrix();
+				
+				baos = new ByteArrayOutputStream();				
+				DERPubmatrixSerializer pserial = new DERPubmatrixSerializer(null, baos);
+				pserial.ExportPubMatrix(m_pubMatrix);
+				m_bytesPubMatrix = baos.toByteArray();
+				logger.info("generate pubmatrix, done");				
+								
+				logger.info("serializing Servlet...");
+				m_storeData = new JdoSecMatrix(
+						bSecmatrix, m_notBefore, m_notAfter,
+						m_bytesPubMatrix				
+						);
 				pm.makePersistent(m_storeData);				
 				logger.info("serialize secmatrix... done");
+				
 			}else{
 				//found, deserialize the bytes
 				logger.info("found in storage, deserialize it...");
@@ -170,17 +190,16 @@ public class PrikeyGen extends HttpServlet {
 				
 				m_storeData = result.get(0);
 				ByteArrayInputStream bais = new ByteArrayInputStream(m_storeData.getBytesSecmatrix().getBytes());
-				DERSecmatrixSerializer serial = new DERSecmatrixSerializer(bais, null);
-				secMatrix = serial.GetSecMatrix();
+				DERSecmatrixSerializer sserial = new DERSecmatrixSerializer(bais, null);
+				m_secMatrix = sserial.GetSecMatrix();
+				
+				m_bytesPubMatrix = m_storeData.getBytesPubmatrix().getBytes();
+				bais = new ByteArrayInputStream(m_bytesPubMatrix);
+				DERPubmatrixSerializer pserial = new DERPubmatrixSerializer(bais, null);
+				m_pubMatrix = pserial.GetPubMatrix();				
 				
 				logger.info("deserialize secmatrix... done");
 			}
-			
-			/// generate pubmatrix from secmatrix
-			logger.info("generate pubmatrix, this may take some time...");
-			m_secMatrix = secMatrix;			
-			m_pubMatrix = secMatrix.DerivePubMatrix();
-			logger.info("generate pubmatrix, done");
 			
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			DERPubmatrixSerializer pubSerial = new DERPubmatrixSerializer(null, baos);
@@ -217,6 +236,7 @@ public class PrikeyGen extends HttpServlet {
 		try{
 			String requestUri = req.getRequestURI();
 			logger.debug("requestURL: " + req.getRequestURL());
+			resp.setContentType("text/plain;charset=UTF-8");
 			if(requestUri.equals(GENKEY)){
 				ReturnPrivateKey(req, resp);
 			}else if(requestUri.equals(GENCERT)){
@@ -244,7 +264,10 @@ public class PrikeyGen extends HttpServlet {
 		logger.debug("generate user certificate");
 		Integer serial = IncCertSerial();
 		Certificate cert = CreateCertificate(m_serverPrivateKey, pubKey, email, serial);
-		TransferToClient(cert.getEncoded(), resp);
+		
+		byte[] bytes = cert.getEncoded();
+		resp.setContentLength(bytes.length);
+		TransferToClient(bytes, resp);
 		logger.debug("returning user cert...done");		
 	}
 
@@ -252,6 +275,7 @@ public class PrikeyGen extends HttpServlet {
 			throws CertificateEncodingException, IOException {
 		logger.debug("return root cert");
 		byte[] bytes = m_serverCertificate.getEncoded();
+		resp.setContentLength(bytes.length);
 		TransferToClient(bytes, resp);
 		logger.debug("return root cert...done");
 	}
@@ -296,8 +320,8 @@ public class PrikeyGen extends HttpServlet {
 
 		Certificate cert = certGen.generate(prikey);
 		
-		logger.debug("try verifying the certificate");
-		cert.verify(m_serverPublicKey);
+//		logger.debug("try verifying the certificate");
+//		cert.verify(m_serverPublicKey);
 		
 		logger.info("Generate certificate for: " + subject + " ...done");
 		return cert;
@@ -322,12 +346,15 @@ public class PrikeyGen extends HttpServlet {
 		String email = axschema.get("email");
 		logger.debug("generate privateKey, id = " + email);
 		PrivateKey priKey = m_secMatrix.GeneratePrivateKey(email);
-		TransferToClient(priKey.getEncoded(), resp);
+		byte[] bytes = priKey.getEncoded();
+		resp.setContentLength(bytes.length); //set content-length
+		TransferToClient(bytes, resp);
 		logger.debug("returning private key...done");
 	}
 
 	private void ReturnPubMatrix(HttpServletResponse resp) throws IOException {
 		logger.debug("returning pubmatrix");
+		resp.setContentLength(m_bytesPubMatrix.length);//set content-length
 		TransferToClient(m_bytesPubMatrix, resp);
 		logger.debug("returning pubmatrix...done");
 	}
