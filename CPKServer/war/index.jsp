@@ -13,10 +13,18 @@
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <title>Welcome to CPK keygen webapp</title>
+    <script type="text/javascript">
+			function getKeyStore(){
+				pass = document.getElementById("pass").value;
+				newpath = "/keygen/GetKeyStore_"+pass;				
+				window.location.href = newpath;				
+			}
+	</script>
   </head>
 
   <body>
     <h2>Thank you for trying CPK keygen</h2><br>
+    <h3>We're using EC curve: <%= application.getInitParameter("EcCurveName")%> </h3><br> 
     <%
        String strTimeZone = application.getInitParameter("TimeZone");
        Calendar c = Calendar.getInstance(TimeZone.getTimeZone(strTimeZone));
@@ -33,6 +41,10 @@
       </tr>
       <tr>
         <td><a href="/keygen/GenCert">Get A Certificate</a></td>
+      </tr>
+      <tr><td colspan="2" style="font-weight:bold;">you also can get the private key and Certificate in one time(in BouncyCastle BKS format), you need to authenticate with openid first</td></tr>       
+      <tr>
+      	<td> keystore password:<input type=text maxLength="40" id="pass" value="test"/><input type="button" onclick="getKeyStore()" value="Get as keystore(BKS format)"/></td>
       </tr>
     </table>
     

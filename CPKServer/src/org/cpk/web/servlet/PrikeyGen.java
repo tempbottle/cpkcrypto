@@ -4,9 +4,11 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.URI;
 import java.security.InvalidKeyException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
@@ -21,8 +23,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
+import java.util.Vector;
 
 import javax.jdo.PersistenceManager;
 import javax.jdo.Query;
@@ -58,6 +60,7 @@ public class PrikeyGen extends HttpServlet {
 	/// strings indicating uri
 	private static final String GENKEY = "/keygen/GenKey";
 //	private static final String GENKEY_CERT = "/keygen/GenKeyAndCert";
+	private static final String GENKEYSTORE = "/keygen/GetKeyStore";
 	private static final String GENCERT = "/keygen/GenCert";
 	private static final String GET_PUBMATRIX = "/GetPubMatrix";
 	private static final Object GET_ROOTCERT = "/GetRootCert";
@@ -112,7 +115,7 @@ public class PrikeyGen extends HttpServlet {
 			logger.error("Not all the configuration files are ready...exit", ex);
 			logger.error("Maybe 'MapAlg.properties' or 'OIDMapAlg.properties' not present?", ex);
 			throw new ServletException("PrikeyGen Init failed", ex);		
-		}	
+		}	 
 		
 //		if( -1 == Security.addProvider(new BouncyCastleProvider())){ //add this provider
 //			logger.error("Failed to add BouncyCastleProvider");
@@ -149,7 +152,7 @@ public class PrikeyGen extends HttpServlet {
 			if(result.isEmpty()){
 				//not found, create new instance
 				logger.info("not found, create new one");
-				String ecCurveName = config.getInitParameter(EC_CURVE_NAME);
+				String ecCurveName = config.getServletContext().getInitParameter(EC_CURVE_NAME);
 				int rowCnt = Integer.parseInt(config.getInitParameter(ROW_CNT));
 				int colCnt = Integer.parseInt(config.getInitParameter(COL_CNT));
 //				String mapAlg = config.getInitParameter(MAP_ALG);
@@ -236,23 +239,79 @@ public class PrikeyGen extends HttpServlet {
 		try{
 			String requestUri = req.getRequestURI();
 			logger.debug("requestURL: " + req.getRequestURL());
-			resp.setContentType("text/plain;charset=UTF-8");
+			resp.setContentType("text/plain; charset=\"UTF-8\"");
 			if(requestUri.equals(GENKEY)){
 				ReturnPrivateKey(req, resp);
 			}else if(requestUri.equals(GENCERT)){
 				ReturnUserCert(req, resp);
+			}else if(requestUri.startsWith(GENKEYSTORE)){
+				ReturnKeyStore(req, resp);
 			}else if(requestUri.equals(GET_PUBMATRIX)){
 				ReturnPubMatrix(resp);
 			}else if(requestUri.equals(GET_ROOTCERT)){
 				ReturnRootCert(resp);
 			}else{
-				resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+				resp.setContentType("text/html; charset=\"UTF-8\"");
+				logger.info("FORBIDDEN access");				
+				PrintWriter out = resp.getWriter();
+				out.print("<html><body><h1>404 Not Found</h1><br><a href=\"/\">Return</a></body></html>");
 			}
 		}catch(Exception ex){
 			logger.error("Error when processing request: " + req.getRequestURL(), ex);
 		}
 	}
 	
+	private void ReturnKeyStore(HttpServletRequest req, HttpServletResponse resp) throws InvalidKeySpecException, MappingAlgorithmException, InvalidKeyException, NoSuchAlgorithmException, SignatureException, CertificateException, NoSuchProviderException, IOException, KeyStoreException {
+		logger.info("returning keystore");
+		PrivateKey priKey = CreatePrivateKey(req);
+		String requestUri = req.getRequestURI();
+		String[] parts = requestUri.split("_");
+		String ksPassword = null;
+		if(parts.length > 1){
+			ksPassword = parts[1];
+		}else{
+			ksPassword = "abcd1234";
+		}
+		
+		OpenIdUser user = (OpenIdUser)req.getAttribute(OpenIdUser.ATTR_NAME);
+		Map<String,String> axschema = AxSchemaExtension.get(user);
+		String email = axschema.get("email");
+		logger.debug("generate public key, id = " + email);
+		PublicKey pubKey = m_pubMatrix.GeneratePublicKey(email);
+
+		Vector<Certificate> vecCert = new Vector<Certificate>();
+		Integer serial = IncCertSerial();
+		vecCert.add(CreateCertificate(priKey, pubKey, email, serial)); //user cert
+		vecCert.add(m_serverCertificate); //root cert
+		
+		//create keystore
+		JDKKeyStore ks = new JDKKeyStore();
+		ks.engineLoad(null, null);
+//		KeyStore.PrivateKeyEntry priKeyEntry = new KeyStore.PrivateKeyEntry(priKey, vecCert.toArray(new Certificate[0]));
+		String alias = "Alpha";
+//		ks.engineSetKeyEntry(alias, priKeyEntry, 
+//				new KeyStore.PasswordProtection(ksPassword.toCharArray()));
+		ks.engineSetKeyEntry(alias, priKey, ksPassword.toCharArray(), vecCert.toArray(new Certificate[0]));
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		ks.engineStore(baos, ksPassword.toCharArray());
+		
+		byte[] bytes = baos.toByteArray();
+		resp.setContentLength(bytes.length);
+		TransferToClient(bytes, resp);
+		
+		logger.info("returning keystore ...done");
+	}
+
+	private PrivateKey CreatePrivateKey(HttpServletRequest req)
+			throws InvalidKeySpecException {
+		OpenIdUser user = (OpenIdUser)req.getAttribute(OpenIdUser.ATTR_NAME);
+		Map<String,String> axschema = AxSchemaExtension.get(user);
+		String email = axschema.get("email");
+		logger.debug("generate privateKey, id = " + email);
+		PrivateKey priKey = m_secMatrix.GeneratePrivateKey(email);
+		return priKey;
+	}
+
 	private void ReturnUserCert(HttpServletRequest req, HttpServletResponse resp)
 	throws InvalidKeySpecException, MappingAlgorithmException, InvalidKeyException, NoSuchAlgorithmException, SignatureException, IOException, CertificateException, NoSuchProviderException{
 		logger.debug("returning user cert");
@@ -341,11 +400,7 @@ public class PrikeyGen extends HttpServlet {
 			HttpServletResponse resp) throws InvalidKeySpecException,
 			IOException {
 		logger.debug("returning private key");
-		OpenIdUser user = (OpenIdUser)req.getAttribute(OpenIdUser.ATTR_NAME);
-		Map<String,String> axschema = AxSchemaExtension.get(user);
-		String email = axschema.get("email");
-		logger.debug("generate privateKey, id = " + email);
-		PrivateKey priKey = m_secMatrix.GeneratePrivateKey(email);
+		PrivateKey priKey = CreatePrivateKey(req);
 		byte[] bytes = priKey.getEncoded();
 		resp.setContentLength(bytes.length); //set content-length
 		TransferToClient(bytes, resp);
