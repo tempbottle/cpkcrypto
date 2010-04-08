@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/apache_common/commons-io-1.4-bin/commons-io-1.4/commons-io-1.4.jar" sourcepath="D:/SOFTWARE/OpenSource/apache_common/commons-io-1.4-bin/commons-io-1.4/commons-io-1.4-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/D:/SOFTWARE/OpenSource/apache_common/commons-io-1.4-bin/commons-io-1.4/docs/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/CPKkeygen/war/WEB-INF/lib/log4j-1.2.15.jar"/>
+	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/bcprov-jdk16-145.jar" sourcepath="D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/crypto-145/crypto-145/src">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/D:/SOFTWARE/OpenSource/TheLegionOfBouncyCastle/docs1.6/docs1.6/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/jdom-1.1.1/jdom/build/jdom.jar" sourcepath="D:/SOFTWARE/OpenSource/jdom-1.1.1/jdom/src/java">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/D:/SOFTWARE/OpenSource/jdom-1.1.1/jdom/build/apidocs/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="D:/SOFTWARE/OpenSource/apache_common/commons-codec-1.4-bin/commons-codec-1.4/commons-codec-1.4.jar" sourcepath="D:/SOFTWARE/OpenSource/apache_common/commons-codec-1.4-bin/commons-codec-1.4/commons-codec-1.4-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/D:/SOFTWARE/OpenSource/apache_common/commons-codec-1.4-bin/commons-codec-1.4/apidocs/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/CPKjava/CPKjava.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
