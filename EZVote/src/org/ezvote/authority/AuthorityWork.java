@@ -72,10 +72,11 @@ public class AuthorityWork implements WorkSet {
 		Document newdoc = new Document(new Element(Authority.GENPUBKEY));
 		Element root = newdoc.getRootElement();
 		
-		Element eId = new Element(Authority.GENPUBKEY_ID).setText(
-				_authority._selfVoter.get_id());
+		String selfid = _authority._selfVoter.get_id(); 
+		Element eId = new Element(Authority.GENPUBKEY_ID).setText(selfid);				
 		root.addContent(eId);
 		
+		_authority._shareTable.put(selfid, _authority._publicShare); //store the share
 		byte[] bytesPt = new X9ECPoint(_authority._publicShare).getDEREncoded();
 		Element eFactor = new Element(Authority.GENPUBKEY_FACTOR).setText(
 				Base64.encodeBase64String(bytesPt));
@@ -150,6 +151,7 @@ public class AuthorityWork implements WorkSet {
 		byte[] bytesPubShare = Base64.decodeBase64(eFactor.getTextTrim()); 
 		ECPoint pt = new X9ECPoint(_authority._ecParam.getCurve(), 
 							new DEROctetString(bytesPubShare)).getPoint();
+		_authority._shareTable.put(idInE, pt); //store that auth
 		_authority._sumPubShare = _authority._sumPubShare.add(pt); //sum the pass-in pub-share
 		
 		///if got all share, pub the generated pubkey(an ecpt) to manager, <GenPubKeyFinish>

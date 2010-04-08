@@ -35,6 +35,7 @@ import org.jdom.input.SAXBuilder;
 import org.jdom.output.XMLOutputter;
 
 public class Utility {
+	public final static String DGSTALG = "SHA-1"; //used in VoteProof
 	public final static String ENCODING = "UTF-8";
 	public final static String SIG_ALG = "ECDSA"; //the signature algorithm used
 	public static final String KEYSPEC_ALG = "EC"; //the pub/private key algorithm

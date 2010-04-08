@@ -3,6 +3,7 @@ package org.ezvote.authority;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.PrivateKey;
+import java.util.Hashtable;
 import java.util.Vector;
 
 import javax.net.ssl.SSLContext;
@@ -43,6 +44,7 @@ public class Authority {
 	BigInteger _secretShare; 
 	ECPoint _publicShare;
 	ECPoint _sumPubShare; //the sum of public share, will be the public key used to encrypt ballot
+	Hashtable<String, ECPoint> _shareTable; //<authId, pubShare> map
 	ECParameterSpec _ecParam; //the EC parameter used for keygen for ballot enc/dec
 	
 	public Authority(SSLContext sslctx, 
@@ -59,6 +61,7 @@ public class Authority {
 		_votersInfo = new Vector<VoterInfo>();
 		_ecParam = ECNamedCurveTable.getParameterSpec(curveName);
 		assert(_sslCtx!=null && _priKey!=null && _selfVoter!=null && _mgrInfo!=null);
+		_shareTable = new Hashtable<String, ECPoint>();
 		
 		if( null == _ecParam ){
 			throw new IOException("the curve name not available: " + curveName);

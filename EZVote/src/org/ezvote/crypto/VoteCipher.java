@@ -68,6 +68,23 @@ public class VoteCipher {
 	}
 	
 	/**
+	 * encrypt the clear text and make a proof that it's either G or -G
+	 * @param msg the clear text , either G or -G
+	 */
+	public CipherTextWithProof encryptAndProve(ECPoint msg) throws ProofException{
+		BigInteger k = new BigInteger(_bitlen, _random);
+		ECPoint g = _ecParam.getG();
+		ECPoint x = g.multiply(k); // k*G
+		ECPoint y = msg.add(_pubKey.multiply(k)); //msg + k*pubkey
+		
+		CipherText ct = new CipherText(x, y); //{k*G, msg+k*pubkey}
+		
+		VoteProof vp = VoteProof.createProof(_ecParam, _pubKey, msg, ct, k);
+		
+		return new CipherTextWithProof(ct, vp);
+	}
+	
+	/**
 	 * decrypt the CipherText, return the original msg
 	 * @param ct CipherText instance
 	 * @return the original msg
@@ -75,7 +92,7 @@ public class VoteCipher {
 	public ECPoint decrypt(CipherText ct){
 		assert(_bCanDecrypt == true);
 		ECPoint neg = ct.getX().multiply(_priKey); //neg = k*G*prikey
-		ECPoint msg = ct.getY().subtract(neg); //msg = Y - neg = msg + k*pubkey - k*G*prikey = msg
+		ECPoint msg = ct.getY().subtract(neg); //msg = Y - neg = omsg + k*pubkey - k*G*prikey = omsg
 		return msg;
 	}
 }
