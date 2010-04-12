@@ -1,13 +1,13 @@
 package org.ezvote.voter;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
-import java.security.KeyFactory;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.Date;
 import java.util.List;
 
@@ -15,10 +15,21 @@ import javax.net.ssl.SSLSocket;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.x9.X9ECPoint;
+import org.bouncycastle.jce.ECNamedCurveTable;
+import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.math.ec.ECPoint;
 import org.ezvote.SignatureException;
 import org.ezvote.authority.Authority;
 import org.ezvote.authority.AuthorityInfo;
 import org.ezvote.authority.AuthorityWork;
+import org.ezvote.authority.Result;
+import org.ezvote.crypto.CipherTextWithProof;
+import org.ezvote.crypto.ProofException;
+import org.ezvote.crypto.VoteCipher;
 import org.ezvote.manager.Manager;
 import org.ezvote.util.DispatcherException;
 import org.ezvote.util.Utility;
@@ -35,7 +46,8 @@ class VoterWork implements WorkSet {
 	private Authority _authority = null; //only available after receive Upgrade message from Manager
 	private String[] _desc = new String[]{
 			"Upgrade" , "procUpgrade",
-			"VoteStart", "procVoteStart"
+			"VoteStart", "procVoteStart",
+			"Result", "procResult"
 	};	
 	
 	///init
@@ -71,7 +83,7 @@ class VoterWork implements WorkSet {
 		String curveName = elemCurveName.getTextTrim();
 		VoterInfo self = new VoterInfo(_voter._localListen, _voter._userId);
 		_authority = new Authority(_voter._sslCtx, _voter._priKey, self, _voter._mgrInfo, curveName);
-		AuthorityWork awork = new AuthorityWork(_authority);
+		AuthorityWork awork = new AuthorityWork(_authority, _voter);
 		
 		///parse the Bulletins element, extract all authorities info
 		List<Element> lstBul = elemBuls.getChildren(Manager.UPGRADE_BULLETINS_ADDR); 
@@ -106,14 +118,20 @@ class VoterWork implements WorkSet {
 	 * @throws SignatureException 
 	 * @throws NoSuchAlgorithmException 
 	 * @throws InvalidKeySpecException 
+	 * @throws ProofException 
+	 * @throws IOException 
+	 * @throws UnsupportedEncodingException 
+	 * @throws java.security.SignatureException 
+	 * @throws InvalidKeyException 
 	 */
-	public void procVoteStart(Document doc, SSLSocket soc) throws SignatureException, NoSuchAlgorithmException, InvalidKeySpecException{
+	public void procVoteStart(Document doc, SSLSocket soc) throws SignatureException, NoSuchAlgorithmException, InvalidKeySpecException, ProofException, UnsupportedEncodingException, IOException, InvalidKeyException, java.security.SignatureException{
 		_log.info("procVoteStart");
 		Element root = doc.getRootElement();
+		Element eCurveName = root.getChild(Authority.VOTESTART_CURVENAME);
 		Element ePubKey = root.getChild(Authority.VOTESTART_PUBKEY);
 		Element eDeadline = root.getChild(Authority.VOTESTART_DEADLINE);
 		Element eBulletins = root.getChild(Authority.VOTESTART_BULLETINS);
-		String serialXML = Utility.XMLElemToString(ePubKey, eDeadline, eBulletins);
+		String serialXML = Utility.XMLElemToString(eCurveName, ePubKey, eDeadline, eBulletins);
 		String sig64 = root.getChildTextTrim(Authority.VOTESTART_SIG);
 		
 		try{
@@ -123,10 +141,10 @@ class VoterWork implements WorkSet {
 			throw new SignatureException("'VoteStart' message signature verification failure");
 		}
 		
-		byte[] bytesPubKey = Base64.decodeBase64(ePubKey.getTextTrim()); 
-		X509EncodedKeySpec spec = new X509EncodedKeySpec(bytesPubKey);
-		KeyFactory factory = KeyFactory.getInstance(Utility.KEYSPEC_ALG);
-		_voter._castPubkey = factory.generatePublic(spec); ///store the PubKey used to encrypt ballot
+		String curveName = eCurveName.getTextTrim();
+		ECParameterSpec ecParam = ECNamedCurveTable.getParameterSpec(curveName);
+		byte[] bytesPubKey = Base64.decodeBase64(ePubKey.getTextTrim());
+		_voter._castPubkey = new X9ECPoint(ecParam.getCurve(), new DEROctetString(bytesPubKey)).getPoint();
 		
 		long time = Long.parseLong(eDeadline.getTextTrim());
 		_voter._deadline = new Date();
@@ -143,12 +161,68 @@ class VoterWork implements WorkSet {
 			_voter._authoritiesInfo.add(ainfo);
 		}
 		
-		///get ballot, encrypt it, make a proof, send to bulletins
+		
+		/////CAST BALLOT START//////////
+		
+		///get ballot, encrypt it, make proof
 		List<Boolean> votelst = _voter._ui.getBallot();
-		for(Boolean b : votelst){
-			
+		
+		ASN1EncodableVector voteVec = new ASN1EncodableVector();
+		ASN1EncodableVector proofVec = new ASN1EncodableVector();
+		VoteCipher cipher = new VoteCipher(ecParam, _voter._castPubkey);
+		
+		try {
+			for(Boolean b : votelst){
+				ECPoint clearText = null;
+				if(b.booleanValue()){ //if true
+					clearText = ecParam.getG();
+				}else{
+					clearText = ecParam.getG().negate();
+				}
+
+				CipherTextWithProof ctwp = cipher.encryptAndProve(clearText);
+				voteVec.add(ctwp.get_ct().serialToSeq());
+				proofVec.add(ctwp.get_vp().serialToSeq());
+			}
+		} catch (ProofException e) {
+			_log.error("error in make proof", e);
+			throw e;
 		}
 		
+		Document newdoc = new Document(new Element(Voter.BALLOT));
+		Element eVote = new Element(Voter.BALLOT_VOTE);
+		eVote.setText(Base64.encodeBase64String(
+				new DERSequence(voteVec).getDEREncoded()));
+		Element eProof = new Element(Voter.BALLOT_PROOF);
+		eProof.setText(Base64.encodeBase64String(
+				new DERSequence(proofVec).getDEREncoded()));
+		Element eSig = new Element(Voter.BALLOT_SIG);
+		String serialXML2 = Utility.XMLElemToString(eVote, eProof);
+		eSig.setText(Utility.genSignature(_voter._priKey, serialXML2));
+				
+		newdoc.getRootElement().addContent(eVote);
+		newdoc.getRootElement().addContent(eProof);
+		newdoc.getRootElement().addContent(eSig);
+		
+		///send the msg to bulletins
+		for(AuthorityInfo ainfo : _voter._authoritiesInfo){
+			Utility.sendXMLDocToPeer(newdoc, _voter._userId,
+					ainfo.get_addr(), ainfo.get_authId(), _voter._sslCtx);			
+		}
+
 	}
 	
+	/**
+	 *  display the result 
+	 */
+	public void procResult(Document doc, SSLSocket soc){
+		List<Element> lstOption = doc.getRootElement().getChildren(Authority.RESULT_OPTION);
+		String[] res = new String[lstOption.size()];
+		int i=0;
+		for(Element e : lstOption){
+			res[i] = new String(e.getTextTrim() + " : " +
+					e.getAttributeValue(Authority.RESULT_OPTION_COUNT));
+		}
+		_voter._ui.displayVoteResult(res);
+	}
 }

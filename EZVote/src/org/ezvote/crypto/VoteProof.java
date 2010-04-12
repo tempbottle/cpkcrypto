@@ -145,7 +145,11 @@ public class VoteProof {
 	 * serialize this proof instance to byte[]
 	 * @return byte[] representation of proof
 	 */
-	public byte[] serialize(){
+	public byte[] serialize(){		
+		return serialToSeq().getDEREncoded();
+	}
+	
+	public DERSequence serialToSeq(){
 		ASN1EncodableVector vec = new ASN1EncodableVector();
 		vec.add(new X9ECPoint(_a1));
 		vec.add(new X9ECPoint(_a2));
@@ -155,7 +159,7 @@ public class VoteProof {
 		vec.add(new DEROctetString(_d2.toByteArray()));
 		vec.add(new DEROctetString(_r1.toByteArray()));
 		vec.add(new DEROctetString(_r2.toByteArray()));
-		return new DERSequence(vec).getDEREncoded();
+		return new DERSequence(vec);
 	}
 	
 	/**

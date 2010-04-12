@@ -33,13 +33,14 @@ public class CipherText {
 	 * @throws CryptoException
 	 */
 	public byte[] serialize(){
-		byte[] out = null;
-		
+		return serialToSeq().getDEREncoded();		
+	}
+	
+	public DERSequence serialToSeq(){
 		ASN1EncodableVector vec = new ASN1EncodableVector();
 		vec.add(new X9ECPoint(_x));
 		vec.add(new X9ECPoint(_y));
-		out = new DERSequence(vec).getDEREncoded();
-		return out;		
+		return new DERSequence(vec);
 	}
 	
 	/**

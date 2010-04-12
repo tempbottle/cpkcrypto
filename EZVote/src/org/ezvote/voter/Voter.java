@@ -11,7 +11,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
-import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -20,8 +19,6 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
-import java.security.Signature;
-import java.security.SignatureException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -34,6 +31,7 @@ import java.util.Vector;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -41,10 +39,10 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.security.auth.x500.X500Principal;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.math.ec.ECPoint;
 import org.ezvote.ConfigException;
 import org.ezvote.RegisterException;
 import org.ezvote.authority.AuthorityInfo;
@@ -76,18 +74,23 @@ public class Voter {
 		private final static String UI_TYPE_CONSOLE = "console";
 		private final static String UI_TYPE_SWT = "swt";
 	
-	private final static String YES = "YES";
-	private final static String NO = "NO";
-	
-	private final static String KEY_ALIAS = "Alpha"; //the key alias in keystore
-	
 	public final static String VOTEREG = "VoteReg";
 	public final static String RESPONSE = "Response";
 		public final static String RESPONSE_ID = "Id";
 		public final static String RESPONSE_LISTEN = "Listen";
 		public final static String RESPONSE_SIG = "Sig";
+		
+	public final static String BALLOT = "Ballot";
+		public final static String BALLOT_VOTE = "Vote";
+		public final static String BALLOT_PROOF = "Proof";
+		public final static String BALLOT_SIG = "Sig";
 	
 	private static String KEYSTORE_FORMAT = null;	
+	
+	private final static String YES = "YES";
+	private final static String NO = "NO";
+	
+	private final static String KEY_ALIAS = "Alpha"; //the key alias in keystore
 	
 	///package-visible variables
 	Properties _prop;
@@ -105,8 +108,9 @@ public class Voter {
 	
 	Vector<AuthorityInfo> _authoritiesInfo;
 //	Vector<VoterInfo> _votersInfo;
+	String[] _options;
 	
-	PublicKey _castPubkey = null; //the pubkey used to encrypt ballot
+	ECPoint _castPubkey = null; //the pubkey used to encrypt ballot
 	Date _deadline = null; //the vote-casting deadline
 	
 	Dispatcher _disp; //tag->work dispatcher
@@ -226,6 +230,7 @@ public class Voter {
 			_log.info("start to create server socket");
 			SSLServerSocketFactory servFac = _sslCtx.getServerSocketFactory();
 			_server = servFac.createServerSocket(_localListen.getPort(), 4, _localListen.getAddress());
+			((SSLServerSocket)_server).setNeedClientAuth(true); //require client auth
 		}catch(IOException ex){
 			_log.error("create server socket failure: " + _localListen.getAddress().getHostAddress() + ":" + _localListen.getPort());
 		}
@@ -322,13 +327,13 @@ public class Voter {
 					String content = root.getChild(Manager.VOTECONTENT_CONTENT).getTextTrim();
 					List<Element> opts = root.getChild(Manager.VOTECONTENT_OPTIONS)
 											.getChildren(Manager.VOTECONTENT_OPTIONS_OPTION);
-					String[] options = new String[opts.size()];
+					_options = new String[opts.size()];
 					Iterator<Element> it = opts.iterator();
 					int cnter = 0;
 					while(it.hasNext()){
-						options[cnter++] = it.next().getTextTrim();
+						_options[cnter++] = it.next().getTextTrim();
 					}
-					_ui.displayVoteContent(_mgrInfo.get_id(), content, options);
+					_ui.displayVoteContent(_mgrInfo.get_id(), content, _options);
 				}
 			} catch (JDOMException ex) {
 				_log.error("Register: parse register result failed");
@@ -388,7 +393,7 @@ public class Voter {
 		public void run(){
 			try{
 				BufferedReader in = new BufferedReader(new InputStreamReader(_soc.getInputStream(), Utility.ENCODING));
-				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(_soc.getOutputStream(), Utility.ENCODING));
+//				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(_soc.getOutputStream(), Utility.ENCODING));
 				
 				Document doc = Utility.ReaderToXMLDoc(in);
 				
@@ -421,6 +426,10 @@ public class Voter {
 		String rootElemTag = doc.getRootElement().getTextTrim();
 		_log.debug("dispatchRequest:" + rootElemTag);
 		_disp.dispatch(rootElemTag, doc, soc);
+	}
+
+	public String[] get_options() {
+		return _options;
 	}
 }
 

@@ -11,6 +11,7 @@ import javax.net.ssl.SSLContext;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECPoint;
+import org.ezvote.crypto.CipherText;
 import org.ezvote.manager.ManagerInfo;
 import org.ezvote.voter.VoterInfo;
 
@@ -18,6 +19,7 @@ public class Authority {
 	///the strings used
 	
 	public static final String VOTESTART = "VoteStart";
+		public static final String VOTESTART_CURVENAME = "CurveName";
 		public static final String VOTESTART_PUBKEY = "PubKey"; 
 		public static final String VOTESTART_DEADLINE = "Deadline";
 		public static final String VOTESTART_BULLETINS = "Bulletins";
@@ -33,6 +35,14 @@ public class Authority {
 	public static final String GENPUBKEYFINISH = "GenPubKeyFinish";
 		public static final String GENPUBKEYFINISH_PUBKEY = "PubKey";
 		
+	public static final String PUBFACTOR = "PubFactor";
+		public static final String PUBFACTOR_WITNESS = "Witness";
+		public static final String PUBFACTOR_PROOF = "Proof";
+		
+	public static final String RESULT = "Result";
+		public static final String RESULT_OPTION = "Option";
+			public static final String RESULT_OPTION_COUNT = "Count";
+		
 	///package-visible variables
 	VoterInfo _selfVoter; //the info of voter self
 	ManagerInfo _mgrInfo; //the info of manager
@@ -46,6 +56,8 @@ public class Authority {
 	ECPoint _sumPubShare; //the sum of public share, will be the public key used to encrypt ballot
 	Hashtable<String, ECPoint> _shareTable; //<authId, pubShare> map
 	ECParameterSpec _ecParam; //the EC parameter used for keygen for ballot enc/dec
+	Vector<CipherText> _tally = null;
+	Result _result = null;
 	
 	public Authority(SSLContext sslctx, 
 			PrivateKey priKey, 

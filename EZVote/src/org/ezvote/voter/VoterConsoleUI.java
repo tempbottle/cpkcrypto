@@ -111,4 +111,10 @@ class VoterConsoleUI implements VoterUI {
 		}
 		System.out.println("Vote completed");
 	}
+	
+	@Override
+	public void displayInfo(String info){
+		System.out.println("Message Coming in:");
+		System.out.println("\t"+info);
+	}
 }

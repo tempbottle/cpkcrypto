@@ -105,13 +105,17 @@ public class SecShareProof {
 	 * serialize this proof to byte[]
 	 * @return byte[] repr.
 	 */
-	public byte[] serialize(){
+	public byte[] serialize(){		
+		return serialToSeq().getDEREncoded();
+	}
+	
+	public DERSequence serialToSeq(){
 		ASN1EncodableVector vec = new ASN1EncodableVector();
 		vec.add(new X9ECPoint(_a));
 		vec.add(new X9ECPoint(_b));
 		vec.add(new DEROctetString(_r.toByteArray()));
 		
-		return new DERSequence(vec).getDEREncoded();
+		return new DERSequence(vec);
 	}
 	
 	/**

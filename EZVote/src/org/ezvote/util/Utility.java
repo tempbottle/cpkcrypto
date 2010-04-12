@@ -7,6 +7,7 @@ import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -28,6 +29,8 @@ import javax.security.auth.x500.X500Principal;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
+import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.math.ec.ECPoint;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -39,6 +42,7 @@ public class Utility {
 	public final static String ENCODING = "UTF-8";
 	public final static String SIG_ALG = "ECDSA"; //the signature algorithm used
 	public static final String KEYSPEC_ALG = "EC"; //the pub/private key algorithm
+	public static final String TIMEZONE_STR = "GMT+8";
 	
 	private static Logger _log = Logger.getLogger(Utility.class);
 	private static Pattern _pattern = Pattern.compile("CN=([^,]+),");
@@ -235,6 +239,31 @@ public class Utility {
 			}
 			
 		}
+	}
+
+	/**
+	 * given the clearText in form of: m*G, find YesCnt 
+	 * where m = YesCnt - NoCnt; 
+	 * as    voterCnt = YesCnt + NoCnt
+	 * so    YesCnt = (m + voterCnt)/2  
+	 * @param clearText the ECPoint of m*G
+	 * @param ecParam the ECParameter
+	 * @param voterCnt how many voters in total
+	 * @return YesCnt
+	 * @throws MathException 
+	 */
+	public static int findYesVoteCount(ECPoint clearText,
+			ECParameterSpec ecParam, int voterCnt) throws MathException {
+			ECPoint G = ecParam.getG();
+			ECPoint increment = G.add(G); //2G
+			ECPoint curr = G.multiply(BigInteger.valueOf(-voterCnt));
+			for(int i=0; i<=voterCnt; ++i){
+				if(curr.equals(clearText)){
+					return i;
+				}
+				curr.add(increment);
+			}
+		throw new MathException("calc YesVote failed");
 	} 
 }
 

@@ -32,4 +32,9 @@ public interface VoterUI {
 	 * @param results TODO
 	 */
 	public void displayVoteResult(String[] results);
+	
+	/**
+	 * display misc. info
+	 */
+	public void displayInfo(String info);
 }
