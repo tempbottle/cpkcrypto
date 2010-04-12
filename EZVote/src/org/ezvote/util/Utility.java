@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.security.auth.x500.X500Principal;
@@ -54,6 +55,20 @@ public class Utility {
 	public static void sendXMLDocToPeer(
 			Document newdoc, String selfId, InetSocketAddress addr, String id, SSLContext sslCtx){
 		_workers.execute(new SendJob(newdoc, selfId, addr, id, sslCtx));
+	}
+	
+	/**
+	 * send the doc to peer synchronously 
+	 */
+	public static void syncSendXMLDocToPeer(
+			Document newdoc, String selfId, InetSocketAddress addr, String id, SSLContext sslCtx)
+	{
+		Thread thr = new Thread(new SendJob(newdoc, selfId, addr, id, sslCtx));
+		try {
+			thr.join();
+		} catch (InterruptedException e) {
+			_log.error("try to sync-send to "+id+" : interrupted");
+		}
 	}
 	
 	/**
@@ -264,6 +279,15 @@ public class Utility {
 				curr.add(increment);
 			}
 		throw new MathException("calc YesVote failed");
+	}
+
+	/**
+	 * retrieve peer's public key from given SSLSocket instance
+	 * @throws SSLPeerUnverifiedException 
+	 */
+	public static PublicKey getPeerPubKey(SSLSocket soc) throws SSLPeerUnverifiedException {
+		SSLSession session = soc.getSession();
+		return session.getPeerCertificateChain()[0].getPublicKey();
 	} 
 }
 

@@ -16,6 +16,11 @@ public interface ManagerUI {
 	Vector<String> getContentAndOptions();  
 	
 	/**
+	 * get the deadline for registration 
+	 */
+	Date getRegDeadline();
+	
+	/**
 	 * get the vote-casting deadline
 	 */
 	Date getDeadline();

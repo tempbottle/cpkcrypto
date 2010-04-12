@@ -20,9 +20,11 @@ import java.security.SignatureException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Properties;
 import java.util.Random;
+import java.util.TimeZone;
 import java.util.Vector;
 
 import javax.net.ssl.KeyManager;
@@ -46,6 +48,7 @@ import org.ezvote.util.Utility;
 import org.ezvote.util.WorkSet;
 import org.ezvote.voter.VoterInfo;
 import org.jdom.Document;
+import org.jdom.Element;
 import org.jdom.JDOMException;
 
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -58,6 +61,8 @@ public class Manager {
 	private final static String PROP_STORE_FILE = "keystore";
 	private final static String PROP_UI_TYPE = "uiType";
 	private final static String PROP_LISTENPORT = "listenPort"; //the port voter listens on
+	private final static String PROP_AUTH_NUMBER = "authorityNumber";
+	private final static String PROP_CURVENAME = "curveName"; //the eccurve used for authorities' public key generation
 		private final static String UI_TYPE_CONSOLE = "console";
 		private final static String UI_TYPE_SWT = "swt";
 		
@@ -66,6 +71,8 @@ public class Manager {
 	private final static String NO = "NO";
 
 	private final static String KEY_ALIAS = "Alpha"; //the key alias in keystore
+	
+	public static final String CHALLENGE = "Challenge";
 	
 	public static final String REGFAILURE = "RegFailure";
 		public static final String REGFAILURE_REASON = "Reason";
@@ -88,6 +95,8 @@ public class Manager {
 
 	public static final String STARTGENPUBKEY = "StartGenPubKey";
 	
+	public static final String VOTEEND = "VoteEnd";
+	
 	public static final String DISTVOTESTART = "DistVoteStart";
 		public static final String DISTVOTESTART_VOTESTART = "VoteStart";
 		
@@ -109,6 +118,11 @@ public class Manager {
 	VoteContent _voteContent; //vote content(brief, options, sig)
 	EligibilityRule _eliRule; //judge whether an id is eligible
 	
+	
+	///state
+	private boolean _bRunRegistration = true; //registration is running
+	private boolean _bRunVoting = true; //voting is running
+	
 	public static void main(String[] args){
 		try{
 			initLog();
@@ -128,13 +142,14 @@ public class Manager {
 		_log.info("start to run");
 		prepare(); //prepare vote brief, options, eligibility, deadline
 		
-		serve(); //serve the request
+		serve(); //serve the incoming request
 	}
 	
 	/**
 	 * init VoteContent;
 	 * specify who's eligible;
 	 * specify deadline 
+	 * set two timer for registration and vote-casting
 	 * 
 	 * @throws UnsupportedEncodingException 
 	 * @throws SignatureException 
@@ -151,11 +166,22 @@ public class Manager {
 		
 		_voteContent = new VoteContent();
 		_voteContent.init(sessionId, brief, options.toArray(new String[0]), _priKey);
-		
+				
 		Date deadline = _ui.getDeadline();
 		_voteContent.set_deadline(deadline);
 		
-		 _eliRule = _ui.getEligibleRule();		
+		Date regDeadline = _ui.getRegDeadline();
+		_voteContent.set_regDeadline(regDeadline);
+		
+		_eliRule = _ui.getEligibleRule();		
+		
+		///set timers
+		Calendar c = Calendar.getInstance(TimeZone.getTimeZone(Utility.TIMEZONE_STR));
+		long seconds = (regDeadline.getTime() - c.getTime().getTime())/1000;
+		new RegTimerThread(seconds).start();
+		
+		seconds = (deadline.getTime() - c.getTime().getTime()) / 1000;
+		new VoteTimerThread(seconds).start();
 	}
 
 	private static Properties initProp(String[] args) {
@@ -296,6 +322,89 @@ public class Manager {
 	}
 	
 	/**
+	 * stop registration,
+	 * choose some voters to upgrade to Bulletin, send `Upgrade' to them,
+	 * and send `StartGenPubKey' to bulletins
+	 * @throws UnsupportedEncodingException 
+	 * @throws SignatureException 
+	 * @throws NoSuchAlgorithmException 
+	 * @throws InvalidKeyException 
+	 */
+	private void stopRegistration() throws InvalidKeyException, NoSuchAlgorithmException, SignatureException, UnsupportedEncodingException{
+		_bRunRegistration = false;
+		
+		int authNum = Integer.parseInt(_prop.getProperty(PROP_AUTH_NUMBER));
+		//TODO : use some digest alg to determine which voter to be authority
+		for(int i=0; i<authNum; ++i){
+			VoterInfo vi = _voters.get(i);
+			_authorities.add(new AuthorityInfo(vi.get_addr(), vi.get_id()));
+		}
+		
+		///send `Upgrade' to these to-be-authorities
+		Document upgradeDoc = new Document(new Element(Manager.UPGRADE));
+		Element upRoot = upgradeDoc.getRootElement();
+		Element eBuls = new Element(Manager.UPGRADE_BULLETINS);		
+		for(int i=0; i<authNum; ++i){
+			AuthorityInfo ainfo = _authorities.get(i);
+			Element eAddr = new Element(Manager.UPGRADE_BULLETINS_ADDR);
+			eAddr.setAttribute(Manager.UPGRADE_BULLETINS_ADDR_ID, ainfo.get_authId());
+			eAddr.setText(ainfo.get_addr().toString());
+			eBuls.addContent(eAddr);
+		}
+		upRoot.addContent(eBuls);
+		Element eVoters = new Element(Manager.UPGRADE_VOTERS);
+		for(int i=0; i<_voters.size(); ++i){
+			VoterInfo vinfo = _voters.get(i);
+			Element eAddr = new Element(Manager.UPGRADE_VOTERS_ADDR);
+			eAddr.setAttribute(Manager.UPGRADE_BULLETINS_ADDR_ID, vinfo.get_id());
+			eAddr.setText(vinfo.get_addr().toString());
+			eVoters.addContent(eAddr);
+		}
+		upRoot.addContent(eVoters);
+		Element eCurve = new Element(Manager.UPGRADE_CURVENAME);
+		eCurve.setText(_prop.getProperty(Manager.PROP_CURVENAME));
+		upRoot.addContent(eCurve);
+		
+		//create sig
+		String serialXML = Utility.XMLElemToString(eBuls, eVoters, eCurve);
+		String sig64 = Utility.genSignature(_priKey, serialXML);
+		Element eSig = new Element(Manager.UPGRADE_SIG);
+		eSig.setText(sig64);		
+		upRoot.addContent(eSig);
+		///create `Upgrade' doc,,,done
+		
+		///send doc to authorities, [sync way]
+		for(AuthorityInfo ainfo : _authorities){
+			Utility.syncSendXMLDocToPeer(upgradeDoc, _self.get_id(),
+					ainfo.get_addr(), ainfo.get_authId(), _sslCtx);
+		}
+		
+		///send `StartGenPubKey' to authorities
+		Document startDoc = new Document(new Element(Manager.STARTGENPUBKEY));
+		for(AuthorityInfo ainfo : _authorities){
+			Utility.sendXMLDocToPeer(startDoc, _self.get_id(),
+					ainfo.get_addr(), ainfo.get_authId(), _sslCtx);
+		}
+	}
+	
+	/**
+	 * stop vote casting,
+	 * send `VoteEnd' to bulletins
+	 */
+	private void stopVoteCasting(){
+		_bRunVoting = false;
+		
+		Document docEnd = new Document(new Element(Manager.VOTEEND));
+		for(AuthorityInfo ainfo : _authorities){
+			Utility.sendXMLDocToPeer(docEnd, _self.get_id(),
+					ainfo.get_addr(), ainfo.get_authId(), _sslCtx);
+		}
+	}
+	
+	public boolean isRegOpen(){return _bRunRegistration;}	
+	public boolean isVoteOpen(){return _bRunVoting;}
+	
+	/**
 	 * serve incoming request 
 	 * @author Red
 	 */
@@ -331,6 +440,52 @@ public class Manager {
 					_log.error("Failed to close connection", e);
 				}
 			}
+		}
+	}
+	
+	/**
+	 * a timer thread used to indicate registration is end
+	 */
+	private class RegTimerThread extends Thread{
+		private final long _seconds;
+		public RegTimerThread(long seconds){
+			_seconds = seconds;
+		}
+		
+		@Override
+		public void run(){
+			try {
+				Thread.sleep(_seconds*1000);
+			} catch (InterruptedException e) {
+				_log.info("RegTimerThread interrupted");
+				return;
+			}
+			
+			try {
+				stopRegistration();			//indicate the registration must stop
+			} catch (Exception e) {
+				_log.error("stopRegistration, failed", e);				
+			} 
+			
+		}
+	}
+	
+	private class VoteTimerThread extends Thread{
+		private final long _seconds;
+		public VoteTimerThread(long seconds){
+			_seconds = seconds;
+		}
+		
+		@Override
+		public void run(){
+			try{
+				Thread.sleep(_seconds*1000);
+			}catch(InterruptedException e){
+				_log.info("VoteTimerThread interrupted");
+				return;
+			}
+			
+			stopVoteCasting();//indicate the vote must stop
 		}
 	}
 	

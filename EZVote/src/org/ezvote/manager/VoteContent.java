@@ -16,6 +16,8 @@ public class VoteContent {
 	private String _content; // the vote's content
 	private String[] _options; //options
 	private Date _deadline; //deadline of vote
+	private Date _regDeadline; //deadline of registration
+	private String _curveName; //the curve used by Authorities for pubkey generation
 	
 	private String _sig = null; //generated signature
 	private Document _doc = null;//generated document
@@ -66,6 +68,22 @@ public class VoteContent {
 
 	public Date get_deadline() {
 		return _deadline;
+	}
+
+	public Date get_regDeadline() {
+		return _regDeadline;
+	}
+
+	public void set_regDeadline(Date regDeadline) {
+		_regDeadline = regDeadline;
+	}
+
+	public String get_CurveName() {
+		return _curveName;
+	}
+
+	public void set_CurveName(String curveName) {
+		this._curveName = curveName;
 	}
 	
 }

@@ -93,4 +93,23 @@ public class ManagerConsoleUI implements ManagerUI {
 		
 	}
 
+	@Override
+	public Date getRegDeadline() {
+		String line = null;
+		try{
+			System.out.println("Please input time duration for registration:(in minutes)");
+			BufferedReader br = new BufferedReader(new InputStreamReader(System.in, _encoding));
+			line = br.readLine();
+			int minutes = Integer.getInteger(line);
+			Calendar c = Calendar.getInstance(TimeZone.getTimeZone(Utility.TIMEZONE_STR));
+			c.add(Calendar.MINUTE, minutes);
+			
+			return c.getTime();
+		}catch(Exception e){
+			_log.error("Failed to get RegDeadline: "+line);
+			System.err.println("SOMETHING WRONG HAPPENED");
+			return null;
+		}		
+	}
+
 }
