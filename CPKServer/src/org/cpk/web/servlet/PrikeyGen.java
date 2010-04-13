@@ -281,7 +281,7 @@ public class PrikeyGen extends HttpServlet {
 
 		Vector<Certificate> vecCert = new Vector<Certificate>();
 		Integer serial = IncCertSerial();
-		vecCert.add(CreateCertificate(priKey, pubKey, email, serial)); //user cert
+		vecCert.add(CreateCertificate(/*priKey*/m_serverPrivateKey, pubKey, email, serial)); //user cert
 		vecCert.add(m_serverCertificate); //root cert
 		
 		//create keystore
@@ -289,9 +289,11 @@ public class PrikeyGen extends HttpServlet {
 		ks.engineLoad(null, null);
 //		KeyStore.PrivateKeyEntry priKeyEntry = new KeyStore.PrivateKeyEntry(priKey, vecCert.toArray(new Certificate[0]));
 		String alias = "Alpha";
+		String certAlias = "Beta";
 //		ks.engineSetKeyEntry(alias, priKeyEntry, 
 //				new KeyStore.PasswordProtection(ksPassword.toCharArray()));
 		ks.engineSetKeyEntry(alias, priKey, ksPassword.toCharArray(), vecCert.toArray(new Certificate[0]));
+		ks.engineSetCertificateEntry(certAlias, m_serverCertificate); //add trusted cert(CA cert)
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		ks.engineStore(baos, ksPassword.toCharArray());
 		
