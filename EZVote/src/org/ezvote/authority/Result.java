@@ -16,11 +16,11 @@ public class Result {
 		_options.add(option);
 	}
 	
-	public Integer getYesCnt(int idx){
-		return _yesCnts.get(idx);
-	}
-	
 	public String getOption(int idx){
 		return _options.get(idx);
+	}
+	
+	public Integer getYesCnt(int idx){
+		return _yesCnts.get(idx);
 	}
 }

@@ -37,11 +37,6 @@ public class SecShareProof {
 	
 	private static Logger _log = Logger.getLogger(SecShareProof.class);
 	
-	private ECPoint _a, _b;
-	private BigInteger _r;
-	
-	private SecShareProof(){}
-	
 	/**
 	 * make a proof (as description said)
 	 * @param ecParam the EC curve related parameters
@@ -68,6 +63,27 @@ public class SecShareProof {
 			
 		return ssp;
 	}
+	/**
+	 * deserialize byte[] repr. to SecShareProof inst.
+	 * @param ecParam EC parameters
+	 * @param bytesProof the proof's byte[] repr.
+	 * @return built SecShareProof inst.
+	 * @throws IOException
+	 */
+	public static SecShareProof deserialize(ECParameterSpec ecParam, byte[] bytesProof) throws IOException{
+		ASN1InputStream is = new ASN1InputStream(bytesProof);
+		DERSequence seq = (DERSequence)is.readObject();
+		ECPoint a = new X9ECPoint(ecParam.getCurve(), (ASN1OctetString)seq.getObjectAt(0)).getPoint();
+		ECPoint b = new X9ECPoint(ecParam.getCurve(), (ASN1OctetString)seq.getObjectAt(1)).getPoint();
+		BigInteger r = new BigInteger(((ASN1OctetString)seq.getObjectAt(2)).getOctets());
+		
+		SecShareProof ssp = new SecShareProof();
+		
+		ssp._a = a;
+		ssp._b = b;
+		ssp._r = r;
+		return ssp;
+	}
 	
 	private static BigInteger makeChallenge(SecShareProof p)
 	throws NoSuchAlgorithmException {
@@ -77,7 +93,30 @@ public class SecShareProof {
 		byte[] bytesC = dgst.digest();
 
 		return new BigInteger(bytesC);
-	}	
+	}
+	
+	private ECPoint _a, _b;
+	
+	private BigInteger _r;	
+	
+	private SecShareProof(){}
+	
+	/**
+	 * serialize this proof to byte[]
+	 * @return byte[] repr.
+	 */
+	public byte[] serialize(){		
+		return serialToSeq().getDEREncoded();
+	}
+	
+	public DERSequence serialToSeq(){
+		ASN1EncodableVector vec = new ASN1EncodableVector();
+		vec.add(new X9ECPoint(_a));
+		vec.add(new X9ECPoint(_b));
+		vec.add(new DEROctetString(_r.toByteArray()));
+		
+		return new DERSequence(vec);
+	}
 	
 	/**
 	 * verify this proof's validity
@@ -99,44 +138,5 @@ public class SecShareProof {
 			result = true;
 		}while(false);		
 		return result;
-	}
-	
-	/**
-	 * serialize this proof to byte[]
-	 * @return byte[] repr.
-	 */
-	public byte[] serialize(){		
-		return serialToSeq().getDEREncoded();
-	}
-	
-	public DERSequence serialToSeq(){
-		ASN1EncodableVector vec = new ASN1EncodableVector();
-		vec.add(new X9ECPoint(_a));
-		vec.add(new X9ECPoint(_b));
-		vec.add(new DEROctetString(_r.toByteArray()));
-		
-		return new DERSequence(vec);
-	}
-	
-	/**
-	 * deserialize byte[] repr. to SecShareProof inst.
-	 * @param ecParam EC parameters
-	 * @param bytesProof the proof's byte[] repr.
-	 * @return built SecShareProof inst.
-	 * @throws IOException
-	 */
-	public static SecShareProof deserialize(ECParameterSpec ecParam, byte[] bytesProof) throws IOException{
-		ASN1InputStream is = new ASN1InputStream(bytesProof);
-		DERSequence seq = (DERSequence)is.readObject();
-		ECPoint a = new X9ECPoint(ecParam.getCurve(), (ASN1OctetString)seq.getObjectAt(0)).getPoint();
-		ECPoint b = new X9ECPoint(ecParam.getCurve(), (ASN1OctetString)seq.getObjectAt(1)).getPoint();
-		BigInteger r = new BigInteger(((ASN1OctetString)seq.getObjectAt(2)).getOctets());
-		
-		SecShareProof ssp = new SecShareProof();
-		
-		ssp._a = a;
-		ssp._b = b;
-		ssp._r = r;
-		return ssp;
 	}
 }

@@ -10,7 +10,7 @@ public class ManagerInfo {
 		_addr = addr; _id = id;
 	}
 
-	public String get_id() {return _id;}
 	public InetSocketAddress get_addr() {return _addr;}
+	public String get_id() {return _id;}
 	
 }

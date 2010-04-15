@@ -3,6 +3,7 @@ package org.ezvote.authority;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -48,25 +49,28 @@ public class Authority {
 	ManagerInfo _mgrInfo; //the info of manager
 	Vector<AuthorityInfo> _authoritiesInfo; //all authorities' info
 	Vector<VoterInfo> _votersInfo; //all voters' info
-	PrivateKey _priKey; //the private key of voter
+	PrivateKey _priKey; //the private key of voter's id [generated from id]
+	PublicKey _pubKey; //the public key of voter's id
 	SSLContext _sslCtx;
 	
-	BigInteger _secretShare; 
-	ECPoint _publicShare;
+	BigInteger _secretShare; // a BigInteger used to generate ballot-crypto keys
+	ECPoint _publicShare; //public share is secretShare * G, all authorities use this to generate encryption public keys
 	ECPoint _sumPubShare; //the sum of public share, will be the public key used to encrypt ballot
 	Hashtable<String, ECPoint> _shareTable; //<authId, pubShare> map
 	ECParameterSpec _ecParam; //the EC parameter used for keygen for ballot enc/dec
 	Vector<CipherText> _tally = null;
-	Result _result = null;
+	Result _result = null;	
 	
 	public Authority(SSLContext sslctx, 
 			PrivateKey priKey, 
+			PublicKey pubKey, 
 			VoterInfo self, 
 			ManagerInfo mgr,
 			String curveName
 			) throws IOException{
 		_sslCtx = sslctx;
 		_priKey = priKey;
+		_pubKey = pubKey;
 		_selfVoter = self;
 		_mgrInfo = mgr;
 		_authoritiesInfo = new Vector<AuthorityInfo>();

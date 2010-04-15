@@ -30,11 +30,6 @@ public class VoteProof {
 	
 	private static Logger _log = Logger.getLogger(VoteProof.class);
 	
-	private ECPoint _a1, _a2, _b1, _b2;
-	private BigInteger _d1, _d2, _r1, _r2;
-	
-	private VoteProof(){}
-	
 	/**
 	 * given clear text and cipher text, make a proof that the cleartext is either G or -G
 	 * @param ecParam the ec curve's parameter
@@ -101,67 +96,6 @@ public class VoteProof {
 			throw new ProofException(e);
 		}		
 	}
-
-	private static BigInteger makeChallenge(VoteProof vp)
-			throws NoSuchAlgorithmException {
-		MessageDigest dgst = MessageDigest.getInstance(Utility.DGSTALG);
-		dgst.update(vp._a1.getEncoded());
-		dgst.update(vp._a2.getEncoded());
-		dgst.update(vp._b1.getEncoded());
-		dgst.update(vp._b2.getEncoded());
-		byte[] bytesC = dgst.digest();
-		
-		return new BigInteger(bytesC);
-	}	
-	
-	/**
-	 * verify this proof against given cipher text 
-	 * @param ct the cipher text
-	 * @param ecParam the EC curve's parameter
-	 * @param P the public key of CipherText
-	 * @return whether the proof is valid
-	 * @throws NoSuchAlgorithmException 
-	 */
-	public boolean verifyProof(CipherText ct, ECParameterSpec ecParam, ECPoint P) throws NoSuchAlgorithmException{
-		boolean result = false;
-		do{
-			ECPoint G = ecParam.getG();
-			ECPoint x = ct.getX();
-			ECPoint y = ct.getY();
-			BigInteger c = makeChallenge(this);
-			if( c != _d1.add(_d2) ) break;  //c == d1 + d2
-			if( ! _a1.equals(G.multiply(_r1).add(x.multiply(_d1))) ) break; //a1 == r1*G + d1*x
-			if( ! _b1.equals(P.multiply(_r1).add(y.add(G).multiply(_d1)))) break; //b1 == r1*P + d1*(y+G)
-			if( ! _a2.equals(G.multiply(_r2).add(x.multiply(_d2)))) break; //a2 == r2*G + d2*x
-			if( ! _b2.equals(P.multiply(_r2).add(y.subtract(G).multiply(_d2)))) break; //b2 == r2*P + (y-G)*d2
-			
-			result = true;
-		}while(false);	
-		
-		return result;
-	}
-	
-	/**
-	 * serialize this proof instance to byte[]
-	 * @return byte[] representation of proof
-	 */
-	public byte[] serialize(){		
-		return serialToSeq().getDEREncoded();
-	}
-	
-	public DERSequence serialToSeq(){
-		ASN1EncodableVector vec = new ASN1EncodableVector();
-		vec.add(new X9ECPoint(_a1));
-		vec.add(new X9ECPoint(_a2));
-		vec.add(new X9ECPoint(_b1));
-		vec.add(new X9ECPoint(_b2));
-		vec.add(new DEROctetString(_d1.toByteArray()));
-		vec.add(new DEROctetString(_d2.toByteArray()));
-		vec.add(new DEROctetString(_r1.toByteArray()));
-		vec.add(new DEROctetString(_r2.toByteArray()));
-		return new DERSequence(vec);
-	}
-	
 	/**
 	 * deserialize the byte[] representation of proof to VoteProof instance
 	 * @param ecParam the EC curve's parameter
@@ -194,5 +128,71 @@ public class VoteProof {
 		vp._r2 = r2;
 		
 		return vp;
+	}
+	
+	private static BigInteger makeChallenge(VoteProof vp)
+			throws NoSuchAlgorithmException {
+		MessageDigest dgst = MessageDigest.getInstance(Utility.DGSTALG);
+		dgst.update(vp._a1.getEncoded());
+		dgst.update(vp._a2.getEncoded());
+		dgst.update(vp._b1.getEncoded());
+		dgst.update(vp._b2.getEncoded());
+		byte[] bytesC = dgst.digest();
+		
+		return new BigInteger(bytesC);
+	}
+	
+	private ECPoint _a1, _a2, _b1, _b2;
+
+	private BigInteger _d1, _d2, _r1, _r2;	
+	
+	private VoteProof(){}
+	
+	/**
+	 * serialize this proof instance to byte[]
+	 * @return byte[] representation of proof
+	 */
+	public byte[] serialize(){		
+		return serialToSeq().getDEREncoded();
+	}
+	
+	public DERSequence serialToSeq(){
+		ASN1EncodableVector vec = new ASN1EncodableVector();
+		vec.add(new X9ECPoint(_a1));
+		vec.add(new X9ECPoint(_a2));
+		vec.add(new X9ECPoint(_b1));
+		vec.add(new X9ECPoint(_b2));
+		vec.add(new DEROctetString(_d1.toByteArray()));
+		vec.add(new DEROctetString(_d2.toByteArray()));
+		vec.add(new DEROctetString(_r1.toByteArray()));
+		vec.add(new DEROctetString(_r2.toByteArray()));
+		return new DERSequence(vec);
+	}
+	
+	/**
+	 * verify this proof against given cipher text 
+	 * @param ct the cipher text
+	 * @param ecParam the EC curve's parameter
+	 * @param P the public key of CipherText
+	 * @return whether the proof is valid
+	 * @throws NoSuchAlgorithmException 
+	 */
+	public boolean verifyProof(CipherText ct, ECParameterSpec ecParam, ECPoint P) throws NoSuchAlgorithmException{
+		boolean result = false;
+		do{
+			ECPoint G = ecParam.getG();
+			ECPoint x = ct.getX();
+			ECPoint y = ct.getY();
+			BigInteger c = makeChallenge(this);
+			if( c != _d1.add(_d2) ) break;  //c == d1 + d2
+			if( ! _a1.equals(G.multiply(_r1).add(x.multiply(_d1))) ) break; //a1 == r1*G + d1*x
+			if( ! _b1.equals(P.multiply(_r1).add(y.add(G).multiply(_d1)))) break; //b1 == r1*P + d1*(y+G)
+			if( ! _a2.equals(G.multiply(_r2).add(x.multiply(_d2)))) break; //a2 == r2*G + d2*x
+			if( ! _b2.equals(P.multiply(_r2).add(y.subtract(G).multiply(_d2)))) break; //b2 == r2*P + (y-G)*d2
+			
+			result = true;
+		}while(false);	
+		
+		return result;
 	}
 }

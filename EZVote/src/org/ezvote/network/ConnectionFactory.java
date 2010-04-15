@@ -56,10 +56,14 @@ public class ConnectionFactory {
 		}
 	}
 	
-	private void initBCTLS(String keystore, String truststore, char[] pass) {
+	public Connection createConn(String address){
 		throw new NotImplementedException();
 	}
 
+	private void initBCTLS(String keystore, String truststore, char[] pass) {
+		throw new NotImplementedException();
+	}
+	
 	private void initJCETLS(String keystore, String truststore, char[] pass) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
 		
 		log.info("init JCE TLS");
@@ -80,9 +84,5 @@ public class ConnectionFactory {
 		_sslContext.init(kms, tms, new SecureRandom());
 		
 		log.info("init JCE TLS...done");
-	}
-	
-	public Connection createConn(String address){
-		throw new NotImplementedException();
 	}
 }

@@ -8,6 +8,7 @@ import java.util.Hashtable;
 
 import javax.net.ssl.SSLSocket;
 
+import org.apache.log4j.Logger;
 import org.jdom.Document;
 
 public class Dispatcher {
@@ -20,7 +21,9 @@ public class Dispatcher {
 		} 
 	}
 	
-	private Hashtable<String, Container> _table;
+	private static Logger _log = Logger.getLogger(Dispatcher.class);
+	
+	private Hashtable<String, Container> _table = new Hashtable<String, Container>();
 	
 	public Dispatcher(){}
 	
@@ -56,6 +59,7 @@ public class Dispatcher {
 	public Object dispatch(String tag, Document doc, SSLSocket soc) throws DispatcherException{
 		Container cont = _table.get(tag);
 		if( null == cont ){
+			_log.error("doc: " + doc.toString());
 			throw new DispatcherException("unknown tag: " + tag);
 		}
 		try {

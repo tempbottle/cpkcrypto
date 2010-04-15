@@ -4,15 +4,29 @@
               To include a user specific buildfile here, simply create one in the same
               directory with the processing instruction <?eclipse.ant.import?>
               as the first entry and export the buildfile again. -->
-<project basedir="." default="build" name="EZVote">
+<project basedir="." default="help" name="EZVote">
     <property environment="env"/>
+    <property name="CPKkeygen.location" value="../CPKkeygen"/>
+    <property name="CPKjava.location" value="../../../../programs/CPKjava/CPKjava"/>
     <property name="ECLIPSE_HOME" value="../../../../../SOFTWARE/eclipse"/>
     <property name="debuglevel" value="source,lines,vars"/>
     <property name="target" value="1.6"/>
     <property name="source" value="1.6"/>
     <path id="EZVote.classpath">
         <pathelement location="bin"/>
+        <pathelement location="../../../../../SOFTWARE/OpenSource/apache_common/commons-io-1.4-bin/commons-io-1.4/commons-io-1.4.jar"/>
+        <pathelement location="${CPKkeygen.location}/war/WEB-INF/lib/log4j-1.2.15.jar"/>
+        <pathelement location="../../../../../SOFTWARE/OpenSource/TheLegionOfBouncyCastle/bcprov-jdk16-145.jar"/>
+        <pathelement location="../../../../../SOFTWARE/OpenSource/jdom-1.1.1/jdom/build/jdom.jar"/>
+        <pathelement location="../../../../../SOFTWARE/OpenSource/apache_common/commons-codec-1.4-bin/commons-codec-1.4/commons-codec-1.4.jar"/>
+        <pathelement location="${CPKjava.location}/CPKjava.jar"/>
     </path>
+	<target name="help">
+		<echo>
+			build: `build'
+			run: `Manager' `Voter' -D_args="xxxx"
+		</echo>
+	</target>
     <target name="init">
         <mkdir dir="bin"/>
         <copy includeemptydirs="false" todir="bin">
@@ -21,9 +35,6 @@
             </fileset>
         </copy>
     </target>
-	<target name="jar" depends="build">
-		<jar destfile="EZVote.jar" basedir="bin"/>	
-	</target>
     <target name="clean">
         <delete dir="bin"/>
     </target>
@@ -50,5 +61,23 @@
     <target description="compile project with Eclipse compiler" name="build-eclipse-compiler">
         <property name="build.compiler" value="org.eclipse.jdt.core.JDTCompilerAdapter"/>
         <antcall target="build"/>
+    </target>
+    <target name="Manager">
+        <java classname="org.ezvote.manager.Manager" failonerror="true" fork="yes"        	
+        	input="mgrIn.txt" timeout="600000"
+        >
+        	<arg line="${cfg}"/>
+            <jvmarg line="-ea"/>
+            <classpath refid="EZVote.classpath"/>
+        </java>
+    </target>
+    <target name="Voter">
+        <java classname="org.ezvote.voter.Voter" failonerror="true" fork="yes"
+        	input="vtrIn.txt" timeout="600000"
+        >
+        	<arg line="${cfg}"/>
+            <jvmarg line="-ea"/>
+            <classpath refid="EZVote.classpath"/>
+        </java>
     </target>
 </project>

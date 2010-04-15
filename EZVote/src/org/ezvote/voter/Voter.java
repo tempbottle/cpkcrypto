@@ -63,59 +63,143 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  * @author Red
  */
 public class Voter {
+	/**
+	 * serve incoming request 
+	 * @author Red
+	 */
+	private class ServerThread extends Thread{
+		
+		private SSLSocket _soc;
+		
+		private ServerThread(SSLSocket soc){
+			 _soc = soc;
+		}
+		
+		@Override
+		public void run(){
+			try{
+				BufferedReader in = new BufferedReader(new InputStreamReader(_soc.getInputStream(), Utility.ENCODING));
+//				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(_soc.getOutputStream(), Utility.ENCODING));
+				
+				Document doc = Utility.ReaderToXMLDoc(in);
+				
+				dispatchRequest(doc, _soc); ///serve the request
+			} catch (UnsupportedEncodingException e) {
+				_log.error("encoding exception:", e);
+			} catch (IOException e) {
+				_log.error("IOException", e);
+			} catch (JDOMException e) {
+				_log.error("Failed to read xml Document from peer", e);
+			} catch(Exception e){
+				_log.error("ServerThread exception", e);
+			}finally{
+				try {
+					_soc.close();
+				} catch (IOException e) {
+					_log.error("Failed to close connection", e);
+				}
+			}
+		}
+	}
+	
 	///log
 	private static Logger _log = Logger.getLogger(Voter.class);
-	
 	///Strings used	
 	private final static String PROP_USEBC = "useBC";
 	private final static String PROP_STORE_FILE = "keystore";
 	private final static String PROP_UI_TYPE = "uiType";
-	private final static String PROP_LISTENPORT = "listenPort"; //the port voter listens on
+		private final static String PROP_LISTENPORT = "listenPort"; //the port voter listens on
 		private final static String UI_TYPE_CONSOLE = "console";
-		private final static String UI_TYPE_SWT = "swt";
 	
+	private final static String UI_TYPE_SWT = "swt";
 	public final static String VOTEREG = "VoteReg";
-	public final static String RESPONSE = "Response";
+		public final static String RESPONSE = "Response";
 		public final static String RESPONSE_ID = "Id";
 		public final static String RESPONSE_LISTEN = "Listen";
-		public final static String RESPONSE_SIG = "Sig";
 		
-	public final static String BALLOT = "Ballot";
+	public final static String RESPONSE_SIG = "Sig";
+		public final static String BALLOT = "Ballot";
 		public final static String BALLOT_VOTE = "Vote";
 		public final static String BALLOT_PROOF = "Proof";
-		public final static String BALLOT_SIG = "Sig";
 	
-	private static String KEYSTORE_FORMAT = null;	
+	public final static String BALLOT_SIG = "Sig";	
 	
+	private static String KEYSTORE_FORMAT = null;
 	private final static String YES = "YES";
+	
 	private final static String NO = "NO";
 	
 	private final static String KEY_ALIAS = "Alpha"; //the key alias in keystore
-	
+	private static void initLog() {
+		try{
+			BufferedReader br = new BufferedReader( 
+					new InputStreamReader(Voter.class.getResourceAsStream("log4j.properties"),
+							Utility.ENCODING));
+			Properties prop = new Properties();
+			prop.load(br);
+			PropertyConfigurator.configure(prop);
+			_log.info("Voter init log4j succeeded");
+		}catch(IOException ex){
+			System.err.println("Voter init log4j failed");
+		}
+	}
+	private static Properties initProp(String[] args) throws IOException {
+		String configFile = "voter.config";
+		if(args.length >= 1){
+			configFile = args[0];
+		}
+		Properties prop = new Properties();
+		try {
+			prop.load(new BufferedReader(new InputStreamReader(new FileInputStream(configFile), Utility.ENCODING)));
+		} catch (IOException e) {
+			_log.error("Failed to load config file: " + configFile);
+			throw e;
+		}
+		return prop;
+	}
+	public static void main(String[] args){
+		try{
+			initLog();
+			Properties prop = initProp(args);
+			
+			Voter voter = new Voter(prop);
+			voter.init();
+			voter.listen();
+			
+			voter.run();
+		}catch(Exception ex){
+			_log.fatal("Uncaught exception", ex);
+		}		
+	}	
 	///package-visible variables
 	Properties _prop;
 	InetSocketAddress _localListen; //the address voter listen on
 	VoterUI _ui;
-	SSLContext _sslCtx;	
+	SSLContext _sslCtx;
+	
 	PrivateKey _priKey; //user's private key
+	PublicKey _pubKey; //user's public key 
 	String _userId; //user's id (corresponding to private key)
+	
 	String _sessionId; //vote-session-specific id
 	ServerSocket _server; //server socket
 	
 	PublicKey _mgrPubKey; //manager's public key
-//	String _mgrId; //manager's id
+	//	String _mgrId; //manager's id
 	ManagerInfo _mgrInfo;
 	
 	Vector<AuthorityInfo> _authoritiesInfo;
-//	Vector<VoterInfo> _votersInfo;
+	
+	
+	//	Vector<VoterInfo> _votersInfo;
 	String[] _options;
 	
 	ECPoint _castPubkey = null; //the pubkey used to encrypt ballot
+
 	Date _deadline = null; //the vote-casting deadline
 	
-	Dispatcher _disp; //tag->work dispatcher
-	
-	
+	Dispatcher _disp; //tag->work dispatcher	
+
 	///////////////////////////////////////////////////////////
 	// public methods
 	public Voter(Properties prop){
@@ -123,7 +207,23 @@ public class Voter {
 		_authoritiesInfo = new Vector<AuthorityInfo>();
 //		_votersInfo = new Vector<VoterInfo>();
 	}
-	
+
+	/**
+	 * according to the document root element, serve different requests
+	 * @param doc
+	 * @param in
+	 * @param out
+	 */
+	public void dispatchRequest(Document doc, SSLSocket soc) throws Exception {
+		String rootElemTag = doc.getRootElement().getName();
+		_log.debug("dispatchRequest:" + rootElemTag);
+		_disp.dispatch(rootElemTag, doc, soc);
+	}
+
+	public String[] get_options() {
+		return _options;
+	}
+
 	/**
 	 * add provider if decided to use BC;
 	 * init keystore;
@@ -139,6 +239,7 @@ public class Voter {
 	 * @throws DispatcherException 
 	 */
 	public void init() throws ConfigException, KeyStoreException, NoSuchAlgorithmException, CertificateException, FileNotFoundException, IOException, KeyManagementException, UnrecoverableEntryException, DispatcherException{
+		_log.info("init start");
 		///init Dispatcher and workset
 		WorkSet voterWork = new VoterWork(this);
 		_disp = new Dispatcher();		
@@ -164,6 +265,7 @@ public class Voter {
 		char[] password = _ui.getKeystorePass(); //get password
 		
 		///BC provider
+		_log.info("init security provider & SSLCtx");
 		String useBC = _prop.getProperty(PROP_USEBC);
 		_log.info("Init: use BC provider: " + useBC);
 		if(useBC.equalsIgnoreCase(YES)){			
@@ -203,22 +305,8 @@ public class Voter {
 		KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry)
 			kstore.getEntry(KEY_ALIAS, new KeyStore.PasswordProtection(password));
 		_priKey = entry.getPrivateKey();
+		_pubKey = entry.getCertificate().getPublicKey();
 		_userId = Utility.getSubjectFromCert((X509Certificate)entry.getCertificate());		
-	}
-	
-	public static void main(String[] args){
-		try{
-			initLog();
-			Properties prop = initProp(args);
-			
-			Voter voter = new Voter(prop);
-			voter.init();
-			voter.listen();
-			
-			voter.run();
-		}catch(Exception ex){
-			_log.fatal("Uncaught exception", ex);
-		}		
 	}
 
 	/**
@@ -235,30 +323,7 @@ public class Voter {
 			_log.error("create server socket failure: " + _localListen.getAddress().getHostAddress() + ":" + _localListen.getPort());
 		}
 	}
-
-	public void run() throws RegisterException {
-		_log.info("start to run");
-		register(); //voter register
-		
-		serve(); //serve the request
-	}
-
-	private void serve() {
-		while(true){			
-			SSLSocket soc;
-			try{
-				soc = (SSLSocket)_server.accept();
-				Utility.logConnection(soc, _userId);
-				Thread thr = new ServerThread(soc);
-				thr.start();
-			}catch(IOException ex){
-				_log.warn("server socket accpet failure", ex);
-			} catch (CertificateException ex) {
-				_log.warn("server socket verification failure", ex);				
-			}			
-		}
-	}
-
+	
 	private void register() throws RegisterException {
 		try {
 			InetSocketAddress mgrAddr = _ui.getManagerAddr();
@@ -272,7 +337,7 @@ public class Voter {
 			_log.debug("retrieve manager's id & pubkey");
 			javax.security.cert.X509Certificate cert = soc.getSession().getPeerCertificateChain()[0];
 			_mgrPubKey = cert.getPublicKey();
-			String mgrId = Utility.getSubjectFromPrinciple((X500Principal)cert.getSubjectDN());
+			String mgrId = Utility.getSubjectFromPrinciple(cert.getSubjectDN());
 			_mgrInfo = new ManagerInfo(mgrAddr, mgrId);
 			
 			BufferedReader socbr = new BufferedReader(new InputStreamReader(soc.getInputStream(), Utility.ENCODING));
@@ -289,7 +354,7 @@ public class Voter {
 			}
 			
 			///manager->voter: challenge
-			_log.info("got challenge");
+			_log.info("try to get challenge");
 			try {
 				doc = Utility.ReaderToXMLDoc(socbr);
 				_sessionId = doc.getRootElement().getTextTrim();
@@ -320,10 +385,10 @@ public class Voter {
 			try{
 				doc = Utility.ReaderToXMLDoc(socbr);
 				Element root = doc.getRootElement();
-				if(root.getTextTrim().equals(Manager.REGFAILURE)){ ///register is rejected
+				if(root.getName().equals(Manager.REGFAILURE)){ ///register is rejected
 					Element reason = root.getChild(Manager.REGFAILURE_REASON);					
 					_ui.displayVoteContent(_mgrInfo.get_id(), reason.getTextTrim(), null);
-				}else if(root.getTextTrim().equals(Manager.VOTECONTENT)){ //register succeeded
+				}else if(root.getName().equals(Manager.VOTECONTENT)){ //register succeeded
 					String content = root.getChild(Manager.VOTECONTENT_CONTENT).getTextTrim();
 					List<Element> opts = root.getChild(Manager.VOTECONTENT_OPTIONS)
 											.getChildren(Manager.VOTECONTENT_OPTIONS_OPTION);
@@ -334,6 +399,9 @@ public class Voter {
 						_options[cnter++] = it.next().getTextTrim();
 					}
 					_ui.displayVoteContent(_mgrInfo.get_id(), content, _options);
+				}else{
+					_log.error("ain't be here!!!!");
+					assert(false);
 				}
 			} catch (JDOMException ex) {
 				_log.error("Register: parse register result failed");
@@ -344,92 +412,32 @@ public class Voter {
 			}			
 			
 		} catch (Exception e) {
-			_log.error("failed to register to manager");
+			_log.error("failed to register to manager", e);
 			throw new RegisterException(e);
 		}
 	}
 
-	private static Properties initProp(String[] args) {
-		String configFile = "voter.config";
-		if(args.length >= 1){
-			configFile = args[0];
-		}
-		Properties prop = new Properties();
-		try {
-			prop.load(new BufferedReader(new InputStreamReader(new FileInputStream(configFile), Utility.ENCODING)));
-		} catch (IOException e) {
-			_log.error("Failed to load config file: " + configFile);
-		}
-		return prop;
+	public void run() throws RegisterException {
+		_log.info("start to run");
+		register(); //voter register
+		
+		serve(); //serve the request
 	}
 
-	private static void initLog() {
-		try{
-			BufferedReader br = new BufferedReader( 
-					new InputStreamReader(Voter.class.getResourceAsStream("log4j.properties"),
-							Utility.ENCODING));
-			Properties prop = new Properties();
-			prop.load(br);
-			PropertyConfigurator.configure(prop);
-			_log.info("Voter init log4j succeeded");
-		}catch(IOException ex){
-			System.err.println("Voter init log4j failed");
-		}
-	}
-	
-	/**
-	 * serve incoming request 
-	 * @author Red
-	 */
-	private class ServerThread extends Thread{
-		
-		private SSLSocket _soc;
-		
-		private ServerThread(SSLSocket soc){
-			 _soc = soc;
-		}
-		
-		@Override
-		public void run(){
+	private void serve() {
+		while(true){			
+			SSLSocket soc;
 			try{
-				BufferedReader in = new BufferedReader(new InputStreamReader(_soc.getInputStream(), Utility.ENCODING));
-//				BufferedWriter out = new BufferedWriter(new OutputStreamWriter(_soc.getOutputStream(), Utility.ENCODING));
-				
-				Document doc = Utility.ReaderToXMLDoc(in);
-				
-				dispatchRequest(doc, _soc); ///serve the request
-			} catch (UnsupportedEncodingException e) {
-				_log.error(e);
-			} catch (IOException e) {
-				_log.error(e);
-			} catch (JDOMException e) {
-				_log.error("Failed to read xml Document from peer", e);
-			} catch(Exception e){
-				_log.error(e);
-			}finally{
-				try {
-					_soc.close();
-				} catch (IOException e) {
-					_log.error("Failed to close connection", e);
-				}
-			}
+				soc = (SSLSocket)_server.accept();
+				Utility.logInConnection(soc, _userId);
+				Thread thr = new ServerThread(soc);
+				thr.start();
+			}catch(IOException ex){
+				_log.warn("server socket accpet failure", ex);
+			} catch (CertificateException ex) {
+				_log.warn("server socket verification failure", ex);				
+			}			
 		}
-	}
-
-	/**
-	 * according to the document root element, serve different requests
-	 * @param doc
-	 * @param in
-	 * @param out
-	 */
-	public void dispatchRequest(Document doc, SSLSocket soc) throws Exception {
-		String rootElemTag = doc.getRootElement().getTextTrim();
-		_log.debug("dispatchRequest:" + rootElemTag);
-		_disp.dispatch(rootElemTag, doc, soc);
-	}
-
-	public String[] get_options() {
-		return _options;
 	}
 }
 

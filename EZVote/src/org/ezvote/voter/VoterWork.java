@@ -1,8 +1,6 @@
 package org.ezvote.voter;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.security.InvalidKeyException;
@@ -16,7 +14,8 @@ import javax.net.ssl.SSLSocket;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.x9.X9ECPoint;
 import org.bouncycastle.jce.ECNamedCurveTable;
@@ -26,7 +25,6 @@ import org.ezvote.SignatureException;
 import org.ezvote.authority.Authority;
 import org.ezvote.authority.AuthorityInfo;
 import org.ezvote.authority.AuthorityWork;
-import org.ezvote.authority.Result;
 import org.ezvote.crypto.CipherTextWithProof;
 import org.ezvote.crypto.ProofException;
 import org.ezvote.crypto.VoteCipher;
@@ -37,7 +35,7 @@ import org.ezvote.util.WorkSet;
 import org.jdom.Document;
 import org.jdom.Element;
 
-class VoterWork implements WorkSet {
+public class VoterWork implements WorkSet {
 	
 	private static Logger _log = Logger.getLogger(VoterWork.class);
 	
@@ -55,6 +53,20 @@ class VoterWork implements WorkSet {
 	
 	@Override
 	public String[] getWorkDesc(){return _desc;}
+	
+	/**
+	 *  display the result 
+	 */
+	public void procResult(Document doc, SSLSocket soc){
+		List<Element> lstOption = doc.getRootElement().getChildren(Authority.RESULT_OPTION);
+		String[] res = new String[lstOption.size()];
+		int i=0;
+		for(Element e : lstOption){
+			res[i] = new String(e.getTextTrim() + " : " +
+					e.getAttributeValue(Authority.RESULT_OPTION_COUNT));
+		}
+		_voter._ui.displayVoteResult(res);
+	}
 	
 	///proc-* functions
 	/**
@@ -82,11 +94,16 @@ class VoterWork implements WorkSet {
 		///create Authority & AuthorityWork, add authority-related work to Dispatcher at last
 		String curveName = elemCurveName.getTextTrim();
 		VoterInfo self = new VoterInfo(_voter._localListen, _voter._userId);
-		_authority = new Authority(_voter._sslCtx, _voter._priKey, self, _voter._mgrInfo, curveName);
-		AuthorityWork awork = new AuthorityWork(_authority, _voter);
+		_authority = new Authority(_voter._sslCtx,
+				_voter._priKey,
+				_voter._pubKey,
+				self, 
+				_voter._mgrInfo,
+				curveName);		
 		
 		///parse the Bulletins element, extract all authorities info
-		List<Element> lstBul = elemBuls.getChildren(Manager.UPGRADE_BULLETINS_ADDR); 
+		List<Element> lstBul = elemBuls.getChildren(Manager.UPGRADE_BULLETINS_ADDR);
+		AuthorityWork awork = new AuthorityWork(_authority, _voter, lstBul.size());
 		for(Element bul : lstBul){
 			String bid = bul.getAttributeValue(Manager.UPGRADE_BULLETINS_ADDR_ID);
 			String addr = bul.getTextTrim(); //ip/host:port
@@ -144,7 +161,8 @@ class VoterWork implements WorkSet {
 		String curveName = eCurveName.getTextTrim();
 		ECParameterSpec ecParam = ECNamedCurveTable.getParameterSpec(curveName);
 		byte[] bytesPubKey = Base64.decodeBase64(ePubKey.getTextTrim());
-		_voter._castPubkey = new X9ECPoint(ecParam.getCurve(), new DEROctetString(bytesPubKey)).getPoint();
+		_voter._castPubkey = new X9ECPoint(ecParam.getCurve(),
+				(ASN1OctetString)new ASN1InputStream(bytesPubKey).readObject()).getPoint();
 		
 		long time = Long.parseLong(eDeadline.getTextTrim());
 		_voter._deadline = new Date();
@@ -210,19 +228,5 @@ class VoterWork implements WorkSet {
 					ainfo.get_addr(), ainfo.get_authId(), _voter._sslCtx);			
 		}
 
-	}
-	
-	/**
-	 *  display the result 
-	 */
-	public void procResult(Document doc, SSLSocket soc){
-		List<Element> lstOption = doc.getRootElement().getChildren(Authority.RESULT_OPTION);
-		String[] res = new String[lstOption.size()];
-		int i=0;
-		for(Element e : lstOption){
-			res[i] = new String(e.getTextTrim() + " : " +
-					e.getAttributeValue(Authority.RESULT_OPTION_COUNT));
-		}
-		_voter._ui.displayVoteResult(res);
 	}
 }

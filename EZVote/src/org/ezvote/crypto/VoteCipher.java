@@ -55,6 +55,18 @@ public class VoteCipher {
 	}
 	
 	/**
+	 * decrypt the CipherText, return the original msg
+	 * @param ct CipherText instance
+	 * @return the original msg
+	 */
+	public ECPoint decrypt(CipherText ct){
+		assert(_bCanDecrypt == true);
+		ECPoint neg = ct.getX().multiply(_priKey); //neg = k*G*prikey
+		ECPoint msg = ct.getY().subtract(neg); //msg = Y - neg = omsg + k*pubkey - k*G*prikey = omsg
+		return msg;
+	}
+	
+	/**
 	 * encrypt given msg
 	 * @param msg the msg defined on the ECCurve
 	 * @return CipherText inst
@@ -82,17 +94,5 @@ public class VoteCipher {
 		VoteProof vp = VoteProof.createProof(_ecParam, _pubKey, msg, ct, k);
 		
 		return new CipherTextWithProof(ct, vp);
-	}
-	
-	/**
-	 * decrypt the CipherText, return the original msg
-	 * @param ct CipherText instance
-	 * @return the original msg
-	 */
-	public ECPoint decrypt(CipherText ct){
-		assert(_bCanDecrypt == true);
-		ECPoint neg = ct.getX().multiply(_priKey); //neg = k*G*prikey
-		ECPoint msg = ct.getY().subtract(neg); //msg = Y - neg = omsg + k*pubkey - k*G*prikey = omsg
-		return msg;
 	}
 }

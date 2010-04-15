@@ -1,18 +1,14 @@
 package org.ezvote.voter;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
 
 public interface VoterUI {
 	/**
-	 * @return the keystore password
+	 * display misc. info
 	 */
-	public char[] getKeystorePass();
-	
-	/**
-	 * @return the Manager's address(IP/host:port)
-	 */
-	public InetSocketAddress getManagerAddr();
+	public void displayInfo(String info);
 	
 	/**
 	 * display the vote's content: manager's id, brief, options
@@ -23,18 +19,23 @@ public interface VoterUI {
 	public void displayVoteContent(String mgrId, String content, String[] options);
 	
 	/**
-	 * @return the options user selects
-	 */
-	public List<Boolean> getBallot();
-	
-	/**
 	 * display the vote result
 	 * @param results TODO
 	 */
 	public void displayVoteResult(String[] results);
 	
 	/**
-	 * display misc. info
+	 * @return the options user selects
 	 */
-	public void displayInfo(String info);
+	public List<Boolean> getBallot();
+	
+	/**
+	 * @return the keystore password
+	 */
+	public char[] getKeystorePass() throws IOException;
+	
+	/**
+	 * @return the Manager's address(IP/host:port)
+	 */
+	public InetSocketAddress getManagerAddr();
 }

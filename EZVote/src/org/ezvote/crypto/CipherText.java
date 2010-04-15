@@ -21,28 +21,6 @@ import org.bouncycastle.math.ec.ECPoint;
 public class CipherText {
 	private static Logger _log = Logger.getLogger(CipherText.class);
 	
-	ECPoint _x, _y;
-	
-	CipherText(ECPoint x, ECPoint y){
-		_x = x; _y = y;
-	}
-	
-	/**
-	 * serialize this CipherText to bytes in ASN.1 format
-	 * @return
-	 * @throws CryptoException
-	 */
-	public byte[] serialize(){
-		return serialToSeq().getDEREncoded();		
-	}
-	
-	public DERSequence serialToSeq(){
-		ASN1EncodableVector vec = new ASN1EncodableVector();
-		vec.add(new X9ECPoint(_x));
-		vec.add(new X9ECPoint(_y));
-		return new DERSequence(vec);
-	}
-	
 	/**
 	 * deserialize bytes in ASN.1 format to form the CipherText instance
 	 * @param curve the ECCurve
@@ -64,6 +42,20 @@ public class CipherText {
 			_log.error("Failed to deserialize CipherText");
 			throw new CryptoException("Failed to deserialize CipherText", e);
 		}
+	}
+	
+	ECPoint _x, _y;
+	
+	CipherText(ECPoint x, ECPoint y){
+		_x = x; _y = y;
+	}
+	
+	public ECPoint getX(){
+		return _x;
+	}
+	
+	public ECPoint getY(){
+		return _y;
 	} 
 	
 	/**
@@ -77,11 +69,19 @@ public class CipherText {
 		return new CipherText(x, y);
 	}
 	
-	public ECPoint getX(){
-		return _x;
+	/**
+	 * serialize this CipherText to bytes in ASN.1 format
+	 * @return
+	 * @throws CryptoException
+	 */
+	public byte[] serialize(){
+		return serialToSeq().getDEREncoded();		
 	}
 	
-	public ECPoint getY(){
-		return _y;
+	public DERSequence serialToSeq(){
+		ASN1EncodableVector vec = new ASN1EncodableVector();
+		vec.add(new X9ECPoint(_x));
+		vec.add(new X9ECPoint(_y));
+		return new DERSequence(vec);
 	}
 }

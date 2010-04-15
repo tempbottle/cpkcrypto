@@ -24,7 +24,39 @@ public class VoteContent {
 	
 	public VoteContent(){}
 	
+	public String get_content() {
+		return _content;
+	}
+	
+	public String get_CurveName() {
+		return _curveName;
+	}
+
+	public Date get_deadline() {
+		return _deadline;
+	}
+
+	public String[] get_options() {
+		return _options;
+	}
+
+	public Date get_regDeadline() {
+		return _regDeadline;
+	}
+
+	public String get_sessionId() {
+		return _sessionId;
+	}
+
+	public Document getDocument(){
+		return _doc;
+	}
+
 	public void init(String sessionId, String content, String[] options, PrivateKey mgrPriKey) throws InvalidKeyException, NoSuchAlgorithmException, SignatureException, UnsupportedEncodingException{
+		_sessionId = sessionId;
+		_content = content;
+		_options = options;
+		
 		///generate document
 		_doc = new Document(new Element(Manager.VOTECONTENT));
 		Element root = _doc.getRootElement();
@@ -45,45 +77,17 @@ public class VoteContent {
 		_sig = Utility.genSignature(mgrPriKey, toBeSign);
 		root.addContent(new Element(Manager.VOTECONTENT_SIG).setText(_sig));		
 	}
-	
-	public Document getDocument(){
-		return _doc;
-	}
 
-	public String get_sessionId() {
-		return _sessionId;
-	}
-
-	public String get_content() {
-		return _content;
-	}
-
-	public String[] get_options() {
-		return _options;
+	public void set_CurveName(String curveName) {
+		this._curveName = curveName;
 	}
 
 	public void set_deadline(Date deadline) {
 		_deadline = deadline;
 	}
 
-	public Date get_deadline() {
-		return _deadline;
-	}
-
-	public Date get_regDeadline() {
-		return _regDeadline;
-	}
-
 	public void set_regDeadline(Date regDeadline) {
 		_regDeadline = regDeadline;
-	}
-
-	public String get_CurveName() {
-		return _curveName;
-	}
-
-	public void set_CurveName(String curveName) {
-		this._curveName = curveName;
 	}
 	
 }

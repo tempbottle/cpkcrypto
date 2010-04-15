@@ -1,6 +1,7 @@
 package org.ezvote.voter;
 
 import java.net.InetSocketAddress;
+import java.security.PublicKey;
 
 public class VoterInfo {
 	private InetSocketAddress _addr;
@@ -12,5 +13,5 @@ public class VoterInfo {
 	}
 
 	public InetSocketAddress get_addr() {	return _addr; 	}
-	public String get_id() { return _id; }
+	public String get_id() { return _id; }	
 }
