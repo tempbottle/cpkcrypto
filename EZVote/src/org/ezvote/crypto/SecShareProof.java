@@ -51,15 +51,16 @@ public class SecShareProof {
 			BigInteger Sj) throws NoSuchAlgorithmException{
 		SecShareProof ssp = new SecShareProof();
 		ECPoint G = ecParam.getG();
+		BigInteger order = ecParam.getN();
 		int bitlen = ecParam.getN().bitLength();
-		BigInteger k = new BigInteger(bitlen, new SecureRandom());
+		BigInteger k = new BigInteger(bitlen, new SecureRandom()).mod(order);
 		
 		ssp._a = G.multiply(k); //a = k*G
 		ssp._b = X.multiply(k); //b = k*X
 		
-		BigInteger c = makeChallenge(ssp);
+		BigInteger c = makeChallenge(ssp).mod(order);
 		
-		ssp._r = k.add(Sj.multiply(c)); //r = k+c*sj 
+		ssp._r = k.add(Sj.multiply(c)).mod(order); //r = k+c*sj 
 			
 		return ssp;
 	}
@@ -124,13 +125,14 @@ public class SecShareProof {
 	 * @param Wj the share published by authority with Wj = sj * X
 	 * @param G the ec curve's generator
 	 * @param X the final ciphertext's x field
+	 * @param order the order of ec-curve
 	 * @return whether valid
 	 * @throws NoSuchAlgorithmException 
 	 */
-	public boolean verifyProof(ECPoint Pj, ECPoint Wj, ECPoint G, ECPoint X) throws NoSuchAlgorithmException{
+	public boolean verifyProof(ECPoint Pj, ECPoint Wj, ECPoint G, ECPoint X, BigInteger order) throws NoSuchAlgorithmException{
 		boolean result = false;
 		do{
-			BigInteger c = makeChallenge(this);
+			BigInteger c = makeChallenge(this).mod(order);
 			ECPoint rG = G.multiply(_r);
 			ECPoint rX = X.multiply(_r);
 			if(! rG.equals(_a.add(Pj.multiply(c)))) break; // r*G == a + c*Pj

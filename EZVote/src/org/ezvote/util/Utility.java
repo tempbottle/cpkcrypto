@@ -20,6 +20,7 @@ import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.CertificateException;
+import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -35,6 +36,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECPoint;
+import org.ezvote.authority.AuthorityInfo;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -42,6 +44,8 @@ import org.jdom.input.SAXBuilder;
 import org.jdom.output.XMLOutputter;
 
 public class Utility {
+	
+	public static final String ACK = "ACK";
 	/**
 	 * this class will send some content to the specified peer, with ThreadPool 
 	 */
@@ -51,7 +55,8 @@ public class Utility {
 		private String _selfId;
 		private InetSocketAddress _targetAddr; //target addr
 		private String _targetId; 
-		private SSLContext _sslCtx;		
+		private SSLContext _sslCtx;
+		private final boolean _bExpectACK;//expect peer return a <ACK> reply
 		
 		private SendJob(Document newdoc,
 				String selfId, 
@@ -62,7 +67,22 @@ public class Utility {
 			_selfId = selfId;
 			_targetAddr = targetAddr;
 			_targetId = targetId;
-			_sslCtx = sslCtx;			
+			_sslCtx = sslCtx;		
+			_bExpectACK = false;
+		}
+		
+		private SendJob(Document newdoc,
+				String selfId, 
+				InetSocketAddress targetAddr, 
+				String targetId, 
+				SSLContext sslCtx,
+				boolean expectACK){
+			_doc = newdoc;
+			_selfId = selfId;
+			_targetAddr = targetAddr;
+			_targetId = targetId;
+			_sslCtx = sslCtx;
+			_bExpectACK = expectACK;
 		}
 		
 		@Override
@@ -76,6 +96,14 @@ public class Utility {
 				BufferedWriter out = new BufferedWriter(
 						new OutputStreamWriter(socket.getOutputStream(), Utility.ENCODING));
 				Utility.XMLDocToWriter(_doc, out);			
+				if(_bExpectACK){
+					BufferedReader in = new BufferedReader(
+							new InputStreamReader(socket.getInputStream(), Utility.ENCODING));
+					Document doc = Utility.ReaderToXMLDoc(in);
+					if(!doc.getRootElement().getName().equals(ACK)){ //if not ACK
+						_log.error("The Peer didn't send ACK back");
+					}
+				}
 				
 			} catch (Exception e) {
 				_log.error("SendJob failed", e);
@@ -117,14 +145,17 @@ public class Utility {
 	 */
 	public static int findYesVoteCount(ECPoint clearText,
 			ECParameterSpec ecParam, int voterCnt) throws MathException {
+			_log.debug("findYesVoteCount: voterCnt = " + voterCnt);
 			ECPoint G = ecParam.getG();
-			ECPoint increment = G.add(G); //2G
-			ECPoint curr = G.multiply(BigInteger.valueOf(-voterCnt));
+			BigInteger order = ecParam.getN();
+			ECPoint increment = G.add(G); //2G			
+			BigInteger starter = BigInteger.valueOf(-voterCnt).mod(order);
+			ECPoint curr = G.multiply(starter);
 			for(int i=0; i<=voterCnt; ++i){
 				if(curr.equals(clearText)){
 					return i;
 				}
-				curr.add(increment);
+				curr = curr.add(increment);
 			}
 		throw new MathException("calc YesVote failed");
 	}
@@ -261,31 +292,43 @@ public class Utility {
 		return doc;
 	}
 	
+	/**
+	 * use Thread pool to async send document to peer(s)
+	 */
 	public static void sendXMLDocToPeer(
 			Document newdoc, String selfId, InetSocketAddress addr, String id, SSLContext sslCtx){
 		_workers.execute(new SendJob(newdoc, selfId, addr, id, sslCtx));
 	}
 
 	/**
-	 * send the doc to peer synchronously 
+	 * send the doc to peer synchronously, and wait for ACK from peer
 	 */
 	public static void syncSendXMLDocToPeer(
-			Document newdoc, String selfId, InetSocketAddress addr, String id, SSLContext sslCtx)
+			Document newdoc, String selfId, Vector<AuthorityInfo> vinfos, SSLContext sslCtx)
 	{
+		Vector<Thread> thrs = new Vector<Thread>();
+		for(AuthorityInfo vinfo : vinfos){
+			InetSocketAddress addr = vinfo.get_addr();
+			String id = vinfo.get_authId();
+			Thread thr = new Thread(new SendJob(newdoc, selfId, addr, id, sslCtx, true));
+			thrs.add(thr);
+			try {
+				XMLOutputter output = new XMLOutputter();
+				StringWriter writer = new StringWriter();
+				output.output(newdoc, writer);
+				_log.debug("syncToPeer: " + writer.toString());
+				thr.start();				
+			} catch (IOException e) {
+				_log.error("IOException while sync Send To Peer", e);
+			}
+		}
 		
-		
-		Thread thr = new Thread(new SendJob(newdoc, selfId, addr, id, sslCtx));
-		try {
-			XMLOutputter output = new XMLOutputter();
-			StringWriter writer = new StringWriter();
-			output.output(newdoc, writer);
-			_log.debug("syncToPeer: " + writer.toString());
-			thr.start();
-			thr.join();
-		} catch (InterruptedException e) {
-			_log.error("try to sync-send to "+id+" : interrupted");
-		} catch (IOException e) {
-			_log.error("IOException while sync Send To Peer", e);
+		for(Thread thr : thrs){
+			try {
+				thr.join();
+			} catch (InterruptedException e) {
+				_log.error("try to recv ACK: interrupted");
+			}
 		}
 	}
 	

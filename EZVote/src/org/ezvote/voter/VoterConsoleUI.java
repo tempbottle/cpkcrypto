@@ -55,16 +55,16 @@ class VoterConsoleUI implements VoterUI {
 	public void displayVoteResult(String[] results) {
 		System.out.println("The Vote results are published:");
 		assert(results.length == _options.length);
-		for(int i=1; i<=_options.length; ++i){
-			System.out.println(_options[i] + " : " + results[i-1]);
+		for(int i=0; i<_options.length; ++i){
+			System.out.println(results[i]);
 		}
 		System.out.println("Vote completed");
 	}
 	
 	@Override
-	public List<Boolean> getBallot() {
+	public boolean[] getBallot() {
 		System.out.println("Please input your choice(s): (space separated)");
-		List<Boolean> lst = new ArrayList<Boolean>();
+		boolean[] lst = new boolean[_options.length];
 		do{
 			try{
 				String line = _br.readLine();
@@ -72,7 +72,7 @@ class VoterConsoleUI implements VoterUI {
 				System.out.println("Your choices are:");
 				for(String c : choices){
 					int choice = Integer.parseInt(c);
-					lst.set(choice-1, true);
+					lst[choice-1]= true;
 					System.out.println(choice+": "+_options[choice-1]);
 				}
 				System.out.println("Is this correct?(Y/N)");

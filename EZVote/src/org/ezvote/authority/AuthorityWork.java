@@ -36,6 +36,7 @@ import org.ezvote.crypto.CipherText;
 import org.ezvote.crypto.CryptoException;
 import org.ezvote.crypto.ProofException;
 import org.ezvote.crypto.SecShareProof;
+import org.ezvote.crypto.VoteCipher;
 import org.ezvote.crypto.VoteProof;
 import org.ezvote.manager.Manager;
 import org.ezvote.util.MathException;
@@ -53,7 +54,8 @@ public class AuthorityWork implements WorkSet {
 	private Authority _authority;
 	private Voter _voter;
 	private boolean[] _authState = null; //whether an auth sent GenPubKey 
-	private AtomicInteger _gotMsgCnt = new AtomicInteger(); //how many GenPubKey msg got
+	private AtomicInteger _gotGPKMsgCnt = new AtomicInteger(); //count received msg, for GenPubKey
+	private AtomicInteger _gotPFMsgCnt = new AtomicInteger(); //count received msg, for PubFactor
 	private String[] _desc = new String[]{
 			"StartGenPubKey" , "procStartGenPubKey",
 			"GenPubKey", "procGenPubKey",
@@ -123,18 +125,19 @@ public class AuthorityWork implements WorkSet {
 	 */
 	public void procBallot(Document doc, SSLSocket soc) throws CertificateException, IOException, InvalidKeyException, NoSuchAlgorithmException, SignatureException, CryptoException{
 		_log.debug("procBallot");
+		SSLSession session = soc.getSession();
+		String peerId = Utility.getSubjectFromPrinciple(session.getPeerPrincipal());
 		
 		BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(soc.getOutputStream(), Utility.ENCODING));
 		
 		if(_isEnd){
+			_log.warn("Voting is closed: "+peerId);
 //			bw.write("408 Voting is closed");
 //			bw.flush();
 			return;
 		}		
 			
-		///verify voter is valid
-		SSLSession session = soc.getSession();
-		String peerId = Utility.getSubjectFromPrinciple(session.getPeerPrincipal());
+		///verify voter is valid		
 		PublicKey peerPubKey = session.getPeerCertificateChain()[0].getPublicKey();
 		_log.debug("peerId = "+peerId);
 		boolean isValidVoter = false;
@@ -146,6 +149,7 @@ public class AuthorityWork implements WorkSet {
 		}
 		
 		if( ! isValidVoter ){ //this user is not authorized to join voting
+			_log.warn("the voter is not eligible: "+peerId);
 //			bw.write("401 Unauthorized voter");
 //			bw.flush();
 			return;
@@ -160,6 +164,7 @@ public class AuthorityWork implements WorkSet {
 		boolean isValidSig = 
 			Utility.VerifyBase64Sig(serialXML, eSig.getTextTrim(), peerPubKey);
 		if( ! isValidSig ){
+			_log.warn("Invalid signature from :"+peerId);
 //			bw.write("400 Invalid sig");
 //			bw.flush();
 			return;
@@ -189,6 +194,7 @@ public class AuthorityWork implements WorkSet {
 			boolean isValidProof = vp.verifyProof(vecCipherText.get(i),
 					_authority._ecParam, _authority._sumPubShare);
 			if( ! isValidProof ){
+				_log.warn("invalid proof from " + peerId);
 //				bw.write("400 Invalid Proof");
 //				bw.flush();
 				return;
@@ -205,7 +211,7 @@ public class AuthorityWork implements WorkSet {
 				tally.set(i, tally.get(i).HomoAdd(vecCipherText.get(i)));
 			}
 		}
-						
+		_log.debug("tally this ballot...done");
 	}
 	
 	/**
@@ -287,7 +293,8 @@ public class AuthorityWork implements WorkSet {
 		_authority._sumPubShare = _authority._sumPubShare.add(pt); //sum the pass-in pub-share
 		
 		///if got all share, pub the generated pubkey(an ecpt) to manager, <GenPubKeyFinish>
-		if(_gotMsgCnt.addAndGet(1) == _authority._authoritiesInfo.size()){
+		if(_gotGPKMsgCnt.addAndGet(1) == _authority._authoritiesInfo.size()-1){
+			_gotGPKMsgCnt.set(0); //reset for PubFactor
 //			//generate pubkey
 //			ECPublicKeySpec pubSpec = new ECPublicKeySpec(
 //					_authority._sumPubShare, _authority._ecParam);
@@ -302,7 +309,7 @@ public class AuthorityWork implements WorkSet {
 							new X9ECPoint(_authority._sumPubShare).getDEREncoded())));
 			Utility.sendXMLDocToPeer(newdoc, _authority._selfVoter.get_id(),
 					_authority._mgrInfo.get_addr(), _authority._mgrInfo.get_id(),
-					_authority._sslCtx); //send to manager
+					_authority._sslCtx); //send to manager			
 		}
 	}
 	
@@ -345,6 +352,7 @@ public class AuthorityWork implements WorkSet {
 		}
 		
 		///deserialize proofs, and verify it
+		_log.debug("deserialize SecShareProof and verify it");
 		byte[] bytesProof = Base64.decodeBase64(eProof.getTextTrim());
 		asnis = new ASN1InputStream(bytesProof);
 		DERSequence proofSeq = (DERSequence)asnis.readObject();
@@ -356,7 +364,8 @@ public class AuthorityWork implements WorkSet {
 					Pj,
 					vecW.get(i),
 					_authority._ecParam.getG(),
-					_authority._tally.get(i).getX()
+					_authority._tally.get(i).getX(),
+					_authority._ecParam.getN()
 					);
 			if(! isValidProof ){
 				_log.warn("invalid proof for PubFactor: no."+i);
@@ -364,19 +373,22 @@ public class AuthorityWork implements WorkSet {
 			} 
 		}
 		
+		_log.debug("sum up pubfactor");
 		///sum up pubfactor to build private key for each option
 		synchronized(_cipherPrivateKey){
 			for(int i=0; i<vecW.size(); ++i){
-				_cipherPrivateKey.set(i, _cipherPrivateKey.get(i).add(vecW.get(i)));
+				_cipherPrivateKey.set(i,
+						_cipherPrivateKey.get(i).add(vecW.get(i)));
 			}
 		}
 		
 		///if all the factor are collected, then decrypt tally and send result to voter
-		if(_gotMsgCnt.addAndGet(1) == _authority._authoritiesInfo.size()-1){
+		if(_gotPFMsgCnt.addAndGet(1) == _authority._authoritiesInfo.size()-1){
+			_log.debug("ready to decrypt tally");			
 			Vector<CipherText> tally = _authority._tally;
 			String[] options = _voter.get_options();
 			Result res = _authority._result;
-			for(int i=0; i<options.length; ++i){
+			for(int i=0; i<options.length; ++i){				
 				ECPoint clearText = 
 					tally.get(i).getY().subtract(_cipherPrivateKey.get(i));
 				int yescnt = Utility.findYesVoteCount(clearText, _authority._ecParam, _authority._votersInfo.size());
@@ -392,7 +404,7 @@ public class AuthorityWork implements WorkSet {
 				op.setText(res.getOption(i));
 				rootElem.addContent(op);
 			}
-			
+			_log.debug("ready to send vote result to voters");
 			//send to voters
 			int[] s_l = getStartAndLen();
 			int start = s_l[0], share= s_l[1];
@@ -402,6 +414,7 @@ public class AuthorityWork implements WorkSet {
 				Utility.sendXMLDocToPeer(newdoc, _authority._selfVoter.get_id(),
 						v.get_addr(), v.get_id(), _authority._sslCtx);
 			}
+			_log.debug("send vote result to voters:done");
 		}
 	}
 	

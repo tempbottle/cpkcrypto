@@ -394,6 +394,9 @@ public class Manager {
 		Date regDeadline = _ui.getRegDeadline();
 		_voteContent.set_regDeadline(regDeadline);
 		
+		String curveName = _prop.getProperty(PROP_CURVENAME);
+		_voteContent.set_CurveName(curveName);
+		
 		_eliRule = _ui.getEligibleRule();		
 		
 		///set timers
@@ -496,11 +499,9 @@ public class Manager {
 		upRoot.addContent(eSig);
 		///create `Upgrade' doc,,,done
 		
-		///send doc to authorities, [sync way]
-		for(AuthorityInfo ainfo : _authorities){
-			Utility.syncSendXMLDocToPeer(upgradeDoc, _self.get_id(),
-					ainfo.get_addr(), ainfo.get_authId(), _sslCtx);
-		}
+		///send doc to authorities, make sure they reply [sync way]
+		Utility.syncSendXMLDocToPeer(upgradeDoc, _self.get_id(),
+				_authorities, _sslCtx);
 		
 		///send `StartGenPubKey' to authorities
 		Document startDoc = new Document(new Element(Manager.STARTGENPUBKEY));

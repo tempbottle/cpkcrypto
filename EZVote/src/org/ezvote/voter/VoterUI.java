@@ -27,7 +27,7 @@ public interface VoterUI {
 	/**
 	 * @return the options user selects
 	 */
-	public List<Boolean> getBallot();
+	public boolean[] getBallot();
 	
 	/**
 	 * @return the keystore password

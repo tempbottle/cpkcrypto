@@ -1,6 +1,8 @@
 package org.ezvote.voter;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.security.InvalidKeyException;
@@ -62,7 +64,7 @@ public class VoterWork implements WorkSet {
 		String[] res = new String[lstOption.size()];
 		int i=0;
 		for(Element e : lstOption){
-			res[i] = new String(e.getTextTrim() + " : " +
+			res[i++] = new String(e.getTextTrim() + " : " +
 					e.getAttributeValue(Authority.RESULT_OPTION_COUNT));
 		}
 		_voter._ui.displayVoteResult(res);
@@ -127,6 +129,11 @@ public class VoterWork implements WorkSet {
 		}
 		
 		_voter._disp.addWorkSet(awork);//add new work to dispatcher
+		
+		///send ACK to manager
+		BufferedWriter socbw = new BufferedWriter(new OutputStreamWriter(soc.getOutputStream(), Utility.ENCODING));
+		Document ackdoc = new Document(new Element(Utility.ACK));
+		Utility.XMLDocToWriter(ackdoc, socbw);
 	}
 	
 	/**
@@ -183,16 +190,16 @@ public class VoterWork implements WorkSet {
 		/////CAST BALLOT START//////////
 		
 		///get ballot, encrypt it, make proof
-		List<Boolean> votelst = _voter._ui.getBallot();
+		boolean[] votelst = _voter._ui.getBallot();
 		
 		ASN1EncodableVector voteVec = new ASN1EncodableVector();
 		ASN1EncodableVector proofVec = new ASN1EncodableVector();
 		VoteCipher cipher = new VoteCipher(ecParam, _voter._castPubkey);
 		
 		try {
-			for(Boolean b : votelst){
+			for(boolean b : votelst){
 				ECPoint clearText = null;
-				if(b.booleanValue()){ //if true
+				if(b){ //if true
 					clearText = ecParam.getG();
 				}else{
 					clearText = ecParam.getG().negate();
@@ -201,6 +208,13 @@ public class VoterWork implements WorkSet {
 				CipherTextWithProof ctwp = cipher.encryptAndProve(clearText);
 				voteVec.add(ctwp.get_ct().serialToSeq());
 				proofVec.add(ctwp.get_vp().serialToSeq());
+//				_log.debug("---VOTE PROOF TEST VERIFY---");
+//				if( ! ctwp.get_vp().verifyProof(
+//						ctwp.get_ct(), ecParam, _voter._castPubkey) ){
+//					_log.error("---VOTE PROOF TEST FAILED---");
+//				}else{
+//					_log.debug("---VOTE PROOF TEST SUCCEEDED---");
+//				}
 			}
 		} catch (ProofException e) {
 			_log.error("error in make proof", e);
